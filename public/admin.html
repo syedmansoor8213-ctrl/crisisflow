@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CF Admin</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a0a;color:#f0f0f0;min-height:100vh}
+#login{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.lb{background:#141414;border:1px solid #2a2a2a;border-radius:12px;padding:36px;width:320px}
+.lb h1{font-size:18px;margin-bottom:20px;color:#a78bfa}
+input{width:100%;padding:10px 13px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:7px;color:#fff;font-size:14px;outline:none;margin-bottom:12px}
+input:focus{border-color:#7c3aed}
+.btn{width:100%;padding:11px;background:#7c3aed;color:#fff;border:none;border-radius:7px;font-size:14px;font-weight:600;cursor:pointer}
+.btn:hover{background:#6d28d9}
+.err{color:#e53e3e;font-size:12px;margin-top:8px;display:none}
+#app{display:none}
+.hdr{background:#0f0f0f;border-bottom:1px solid #1a1a1a;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between}
+.hdr h1{font-size:15px;color:#a78bfa;font-weight:700}
+nav{display:flex;background:#0d0d0d;border-bottom:1px solid #1a1a1a;padding:0 20px}
+nav button{padding:12px 16px;background:none;border:none;color:#666;font-size:13px;cursor:pointer;border-bottom:2px solid transparent}
+nav button.on{color:#f0f0f0;border-bottom-color:#7c3aed}
+.cnt{padding:20px;max-width:1200px;margin:0 auto}
+.page{display:none}
+.page.on{display:block}
+.tbl-wrap{background:#141414;border:1px solid #222;border-radius:10px;overflow:auto;margin-top:16px}
+table{width:100%;border-collapse:collapse;min-width:700px}
+th{text-align:left;padding:10px 14px;font-size:11px;color:#555;font-weight:600;background:#111;border-bottom:1px solid #1a1a1a}
+td{padding:10px 14px;font-size:12px;border-bottom:1px solid #161616;color:#ccc}
+tr:last-child td{border-bottom:none}
+.sb{padding:5px 10px;border:none;border-radius:5px;font-size:11px;font-weight:600;cursor:pointer}
+.sb.freeze{background:#3b1111;color:#fc8181}
+.sb.unfreeze{background:#0f3b1a;color:#68d391}
+.pending-card{background:#141414;border:1px solid #222;border-radius:10px;padding:18px;margin-bottom:12px}
+.pending-card h3{font-size:14px;font-weight:600;margin-bottom:12px}
+.meta-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.meta-grid span{font-size:11px;color:#888}
+.meta-grid strong{display:block;color:#ccc;font-size:12px;margin-top:2px}
+.approve-btn{padding:9px 18px;background:#1a3b1a;color:#68d391;border:1px solid #2a5a2a;border-radius:7px;font-size:13px;cursor:pointer;font-weight:600}
+.approve-btn:hover{background:#254a25}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.stat{background:#141414;border:1px solid #222;border-radius:10px;padding:18px}
+.stat-l{font-size:11px;color:#555;margin-bottom:6px}
+.stat-v{font-size:26px;font-weight:700}
+
+/* KEY POPUP */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:999}
+.overlay.show{display:flex}
+.popup{background:#141414;border:2px solid #7c3aed;border-radius:12px;padding:28px;width:480px;max-width:90vw}
+.popup h2{color:#68d391;font-size:17px;margin-bottom:16px}
+.kbox{background:#0d0d0d;border:1px solid #2a2a2a;border-radius:6px;padding:12px;font-family:monospace;font-size:12px;word-break:break-all;color:#f6ad55;margin-bottom:10px}
+.warn{color:#e53e3e;font-size:12px;margin-bottom:18px;line-height:1.6}
+.popup .btn{width:100%}
+</style>
+</head>
+<body>
+<div id="login">
+  <div class="lb">
+    <h1>CrisisFlow Admin</h1>
+    <input type="password" id="pw" placeholder="Master password" onkeydown="if(event.key==='Enter')login()">
+    <button class="btn" onclick="login()">Enter</button>
+    <div class="err" id="aerr">Wrong password.</div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="hdr"><h1>CrisisFlow Admin</h1><span style="font-size:11px;color:#444" id="ts"></span></div>
+  <nav>
+    <button class="on" onclick="go('owners',this)">Owners</button>
+    <button onclick="go('pending',this)">Pending <span id="pb" style="background:#3b2511;color:#f6ad55;padding:1px 6px;border-radius:8px;font-size:10px;margin-left:3px"></span></button>
+    <button onclick="go('referrals',this)">Referrals</button>
+    <button onclick="go('stats',this)">Stats</button>
+  </nav>
+  <div class="cnt">
+    <div class="page on" id="page-owners">
+      <input type="text" id="srch" placeholder="Search name, email, tenant..." oninput="filterOwners()" style="max-width:300px;margin-bottom:0">
+      <div class="tbl-wrap">
+        <table><thead><tr><th>Business</th><th>Email</th><th>Tenant ID</th><th>Status</th><th>Referral</th><th>Joined</th><th>Action</th></tr></thead>
+        <tbody id="owners-tb"></tbody></table>
+      </div>
+    </div>
+    <div class="page" id="page-pending"><div id="pending-list"></div></div>
+    <div class="page" id="page-referrals">
+      <div class="tbl-wrap"><table><thead><tr><th>Name</th><th>Clients</th></tr></thead><tbody id="ref-tb"></tbody></table></div>
+    </div>
+    <div class="page" id="page-stats">
+      <div class="stats">
+        <div class="stat"><div class="stat-l">Total</div><div class="stat-v" id="st-t">—</div></div>
+        <div class="stat"><div class="stat-l">Active</div><div class="stat-v" id="st-a" style="color:#68d391">—</div></div>
+        <div class="stat"><div class="stat-l">Frozen</div><div class="stat-v" id="st-f" style="color:#e53e3e">—</div></div>
+        <div class="stat"><div class="stat-l">MRR</div><div class="stat-v" id="st-m" style="color:#a78bfa">—</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="key-overlay">
+  <div class="popup">
+    <h2>✓ Account Activated</h2>
+    <p style="font-size:12px;color:#888;margin-bottom:8px">Tenant ID:</p><div class="kbox" id="pop-tid"></div>
+    <p style="font-size:12px;color:#888;margin-bottom:8px">Secret Key (shown ONCE — you must deliver this manually):</p><div class="kbox" id="pop-key"></div>
+    <div class="warn">⚠ This key cannot be recovered. Copy it now and send directly to the client yourself. Do not let your salesperson deliver it.</div>
+    <button class="btn" onclick="closePopup()">I've copied the key — Close</button>
+  </div>
+</div>
+
+<script>
+let pw = '', allOwners = [];
+
+async function login() {
+  pw = document.getElementById('pw').value;
+  const r = await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',password:pw})});
+  if (r.status===429){document.getElementById('aerr').textContent='Locked 1hr';document.getElementById('aerr').style.display='block';return}
+  const d = await r.json();
+  if (!d.ok){document.getElementById('aerr').style.display='block';return}
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('ts').textContent=new Date().toLocaleString();
+  loadOwners(); loadPending();
+}
+
+async function loadOwners() {
+  const r = await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'owners',password:pw})});
+  const d = await r.json();
+  allOwners = d.owners || [];
+  renderOwners(allOwners);
+}
+
+function filterOwners() {
+  const q = document.getElementById('srch').value.toLowerCase();
+  renderOwners(q ? allOwners.filter(o=>(o.business_name+o.email+o.tenant_id).toLowerCase().includes(q)) : allOwners);
+}
+
+function renderOwners(list) {
+  const tb = document.getElementById('owners-tb');
+  if (!list.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:#444;padding:30px">None</td></tr>';return}
+  tb.innerHTML=list.map(o=>`<tr>
+    <td><strong>${esc(o.business_name)}</strong><br><span style="color:#555;font-size:11px">${esc(o.owner_name)}</span></td>
+    <td style="color:#888">${esc(o.email)}</td>
+    <td style="font-family:monospace;color:#a78bfa;font-size:11px">${esc(o.tenant_id)}</td>
+    <td style="color:${o.status==='active'?'#68d391':'#fc8181'}">${o.status}</td>
+    <td style="color:#777">${esc(o.referral_name||'—')}</td>
+    <td style="color:#555">${new Date(o.created_at).toLocaleDateString()}</td>
+    <td>${o.status==='active'?`<button class="sb freeze" onclick="toggle('${o.id}','freeze')">Freeze</button>`:`<button class="sb unfreeze" onclick="toggle('${o.id}','unfreeze')">Unfreeze</button>`}</td>
+  </tr>`).join('');
+}
+
+async function toggle(id, action) {
+  if(!confirm(action==='freeze'?'Freeze this account?':'Unfreeze and restore?'))return;
+  await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,owner_id:id,password:pw})});
+  loadOwners();
+}
+
+async function loadPending() {
+  const r = await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'pending',password:pw})});
+  const d = await r.json();
+  const items = d.items||[];
+  document.getElementById('pb').textContent = items.length||'';
+  const el = document.getElementById('pending-list');
+  if(!items.length){el.innerHTML='<p style="color:#444;padding:40px;text-align:center">No pending submissions</p>';return}
+  el.innerHTML=items.map(item=>{
+    const f=item.form_data;
+    return `<div class="pending-card">
+      <h3>${esc(f.business_name)} — ${esc(f.owner_name)}</h3>
+      <div class="meta-grid">
+        <span>Email<strong>${esc(f.email)}</strong></span>
+        <span>Phone<strong>${esc(f.phone)}</strong></span>
+        <span>Referral<strong>${esc(f.referral_name||'—')}</strong></span>
+        <span>Service Area<strong>${esc(f.service_area)}</strong></span>
+        <span>Radius<strong>${f.radius_miles||25} mi</strong></span>
+        <span>Min Job<strong>$${f.min_job_value||200}</strong></span>
+        <span>Vapi ID<strong>${f.vapi_assistant_id?'✓ Set':'✗ Missing'}</strong></span>
+        <span>Job Types<strong>${esc((f.job_types||[]).join(', ')||'—')}</strong></span>
+        <span>Submitted By<strong>${esc(item.submitted_by||'—')}</strong></span>
+      </div>
+      <button class="approve-btn" onclick="issueKey('${item.id}')">✓ Approve & Activate</button>
+      <span style="font-size:11px;color:#444;margin-left:12px">${new Date(item.created_at).toLocaleString()}</span>
+    </div>`;
+  }).join('');
+}
+
+async function issueKey(id) {
+  if(!confirm('Issue credentials and activate this account?'))return;
+  const r = await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'issue_key',onboarding_id:id,password:pw})});
+  const d = await r.json();
+  if(d.ok){
+    document.getElementById('pop-tid').textContent=d.tenant_id;
+    document.getElementById('pop-key').textContent=d.secret_key;
+    document.getElementById('key-overlay').classList.add('show');
+    loadPending(); loadOwners();
+  } else { alert('Error: '+(d.error||'Unknown')); }
+}
+
+function closePopup() {
+  document.getElementById('pop-tid').textContent='';
+  document.getElementById('pop-key').textContent='';
+  document.getElementById('key-overlay').classList.remove('show');
+}
+
+function go(name,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on'));
+  document.getElementById('page-'+name).classList.add('on'); btn.classList.add('on');
+  if(name==='referrals')loadRefs();
+  if(name==='stats')loadStats();
+}
+
+function loadRefs(){
+  const map={};
+  allOwners.forEach(o=>{if(!o.referral_name)return;map[o.referral_name]=(map[o.referral_name]||0)+1;});
+  const rows=Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('ref-tb').innerHTML=rows.length?rows.map(([n,c])=>`<tr><td>${esc(n)}</td><td style="color:#a78bfa;font-weight:700;font-size:18px">${c}</td></tr>`).join(''):'<tr><td colspan="2" style="text-align:center;color:#444;padding:30px">No referrals yet</td></tr>';
+}
+
+function loadStats(){
+  const a=allOwners.filter(o=>o.status==='active').length;
+  const f=allOwners.filter(o=>o.status==='frozen').length;
+  document.getElementById('st-t').textContent=allOwners.length;
+  document.getElementById('st-a').textContent=a;
+  document.getElementById('st-f').textContent=f;
+  document.getElementById('st-m').textContent='$'+(a*97).toLocaleString();
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+</script>
+</body>
+</html>
