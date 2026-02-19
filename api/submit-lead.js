@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     return res.status(404).json({ error: 'Not found' });
   }
 
-  // ─── STEP 1: KEYWORD PRE-CHECK (instant, free, reliable) ───
+  // ─── STEP 1: KEYWORD PRE-CHECK ───
   const urgencyKeywords = [
     'emergency', 'urgent', 'immediately', 'right now', 'asap',
     'quickly', 'hurry', 'please help', 'desperate', 'serious',
@@ -40,8 +40,8 @@ export default async function handler(req, res) {
   let classification;
 
   if (hasUrgencyKeyword) {
-    // Don't call Gemini — keyword says it's urgent
-    classification = { class: 'urgent', reason: 'urgency keywords detected in description' };
+    classification = { class: 'urgent', reason: 'urgency keywords detected' };
+    console.log('Keyword match — classified urgent instantly');
   } else {
     // ─── STEP 2: GEMINI FOR AMBIGUOUS CASES ───
     const prompt = `You are a lead urgency classifier for a local service business.
@@ -54,17 +54,16 @@ Their location: ${location}
 Their description: ${description}
 
 Classify as URGENT if ANY of these are true:
-- They used words like: emergency, urgent, immediately, right now, ASAP, quickly, hurry, help, please, desperate, serious, bad, critical
-- They described something that could cause damage or safety risk if not fixed soon
-- The tone sounds distressed or panicked
-- AC or heating failure during extreme weather
+- Tone sounds distressed or panicked
+- Could cause damage or safety risk if not fixed soon
+- AC or heating failure in extreme weather
 - No power, no heat, no cooling
 - Active leaking, flooding, or water damage
 - Locked out right now
 - Vehicle stranded
 
 Classify as QUALIFIED if:
-- Real job, right service, right location, no urgency signals above
+- Real job, right service, right location, no urgency signals
 
 Classify as JUNK if:
 - Wrong location, wrong service, spam, not a real job
@@ -86,27 +85,18 @@ Respond ONLY with valid JSON, nothing else:
       );
 
       const geminiData = await response.json();
-      const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text
-        || '{"class":"qualified","reason":"fallback"}';
-
+      const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       console.log('Gemini raw response:', text);
 
-      // Safe parse — check string content first
-      if (text.includes('"class": "urgent"') || text.includes('"class":"urgent"')) {
-        classification = { class: 'urgent', reason: 'gemini classified urgent' };
-      } else if (text.includes('"class": "junk"') || text.includes('"class":"junk"')) {
-        classification = { class: 'junk', reason: 'gemini classified junk' };
+      if (text.includes('"urgent"')) {
+        classification = { class: 'urgent', reason: 'gemini urgent' };
+      } else if (text.includes('"junk"')) {
+        classification = { class: 'junk', reason: 'gemini junk' };
       } else {
-        // Try full JSON parse as fallback
-        try {
-          classification = JSON.parse(text.replace(/```json|```/g, '').trim());
-        } catch {
-          classification = { class: 'qualified', reason: 'parse fallback' };
-        }
+        classification = { class: 'qualified', reason: 'gemini qualified' };
       }
     } catch (err) {
       console.error('Gemini failed:', err);
-      // Gemini down — default to qualified, never reject
       classification = { class: 'qualified', reason: 'gemini error fallback' };
     }
   }
@@ -115,19 +105,32 @@ Respond ONLY with valid JSON, nothing else:
   const lead = {
     tenant_id,
     source: 'form',
-    caller_name: name,
+    caller_name: name || 'Unknown',
     caller_phone: phone,
     callback_phone: phone,
-    job_type: service_type,
-    location,
+    job_type: service_type || 'General',
+    location: location || null,
     urgency_class: classification.class,
     ai_summary: description,
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
   };
 
-  await supabase.from('leads').insert(lead);
+  const { error: leadError } = await supabase.from('leads').insert(lead);
+  if (leadError) console.error('Lead insert error:', leadError);
 
-  // ─── STEP 4: ALERT IF URGENT ───
+  // ─── STEP 4: SAVE TO CAMPAIGN CONTACTS IMMEDIATELY ───
+  if (name && phone) {
+    const { error: ccError } = await supabase.from('campaign_contacts').insert({
+      tenant_id,
+      name: name,
+      phone: phone,
+      service_type: service_type || 'General',
+      source: 'form'
+    });
+    if (ccError) console.error('Campaign contact error:', ccError);
+  }
+
+  // ─── STEP 5: ALERT IF URGENT ───
   if (classification.class === 'urgent') {
     const message = `URGENT FORM LEAD\nName: ${name}\nPhone: ${phone}\nService: ${service_type}\nLocation: ${location}\nDescription: ${description}`;
 
@@ -141,7 +144,7 @@ Respond ONLY with valid JSON, nothing else:
       body: JSON.stringify({
         from: 'alerts@yourdomain.com',
         to: tenant.owner_email,
-        subject: `🚨 URGENT FORM LEAD — ${name}`,
+        subject: `URGENT FORM LEAD — ${name}`,
         text: message
       })
     }).catch(e => console.error('Resend failed:', e));
