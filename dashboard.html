@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RingReady — Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0a; color: #e8e8e8; font-family: system-ui, sans-serif; }
+  .header { background: #111; border-bottom: 1px solid #222; padding: 16px 24px;
+    display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 18px; }
+  .header .biz { font-size: 13px; color: #666; }
+  .header-right { display: flex; gap: 12px; align-items: center; }
+  .btn-csv { background: transparent; border: 1px solid #333; color: #888;
+    padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .btn-csv:hover { border-color: #ff2d20; color: #ff2d20; }
+  .btn-logout { background: transparent; border: none; color: #555; cursor: pointer; font-size: 13px; }
+  .controls { padding: 20px 24px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .tabs { display: flex; gap: 4px; }
+  .tab { padding: 8px 16px; border-radius: 6px; border: 1px solid #333; background: transparent;
+    color: #888; cursor: pointer; font-size: 13px; }
+  .tab.active { background: #ff2d20; border-color: #ff2d20; color: white; }
+  .tab.urgent { border-color: #ff2d20; color: #ff2d20; }
+  .tab.urgent.active { background: #ff2d20; color: white; }
+  .filters { display: flex; gap: 4px; margin-left: auto; }
+  .filter { padding: 8px 12px; border-radius: 6px; border: 1px solid #333; background: transparent;
+    color: #888; cursor: pointer; font-size: 12px; }
+  .filter.active { background: #222; color: #e8e8e8; border-color: #555; }
+  .leads { padding: 0 24px 40px; }
+  .lead-card { background: #111; border: 1px solid #222; border-radius: 8px;
+    padding: 20px; margin-bottom: 12px; }
+  .lead-card.urgent { border-color: #ff2d20; background: #150a0a; }
+  .lead-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .lead-name { font-size: 16px; font-weight: 600; }
+  .lead-time { font-size: 12px; color: #555; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px;
+    font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+  .badge.urgent { background: #ff2d2020; color: #ff2d20; border: 1px solid #ff2d20; }
+  .badge.qualified { background: #0a2a1a; color: #4d4; border: 1px solid #2a6; }
+  .badge.junk { background: #1a1a1a; color: #666; border: 1px solid #333; }
+  .lead-info { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .info-item label { font-size: 11px; color: #555; display: block; margin-bottom: 2px; }
+  .info-item span { font-size: 14px; }
+  .summary { font-size: 13px; color: #888; background: #1a1a1a; padding: 12px; border-radius: 6px; line-height: 1.6; }
+  .source-tag { font-size: 11px; color: #555; margin-top: 8px; }
+  .empty { text-align: center; padding: 80px 24px; color: #444; }
+  .empty h3 { font-size: 18px; margin-bottom: 8px; }
+  .loading { text-align: center; padding: 60px; color: #555; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>RingReady</h1>
+    <div class="biz" id="biz-name">Loading...</div>
+  </div>
+  <div class="header-right">
+    <button class="btn-csv" onclick="downloadCSV()">↓ Export Contacts</button>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('all', this)">All</button>
+    <button class="tab urgent" onclick="setTab('urgent', this)">🔴 Urgent</button>
+    <button class="tab" onclick="setTab('qualified', this)">Qualified</button>
+    <button class="tab" onclick="setTab('junk', this)">Junk</button>
+  </div>
+  <div class="filters">
+    <button class="filter active" onclick="setFilter('today', this)">Today</button>
+    <button class="filter" onclick="setFilter('yesterday', this)">Yesterday</button>
+    <button class="filter" onclick="setFilter('3days', this)">3 Days</button>
+    <button class="filter" onclick="setFilter('7days', this)">7 Days</button>
+    <button class="filter" onclick="setFilter('all', this)">All</button>
+  </div>
+</div>
+
+<div class="leads" id="leads-container">
+  <div class="loading">Loading leads...</div>
+</div>
+
+<script>
+  const tid = localStorage.getItem('rr_tenant_id');
+  const sk = localStorage.getItem('rr_secret_key');
+  const biz = localStorage.getItem('rr_business_name');
+
+  if (!tid || !sk) window.location.href = '/index.html';
+
+  document.getElementById('biz-name').textContent = biz || '';
+
+  let currentTab = 'all';
+  let currentFilter = 'today';
+
+  function setTab(tab, el) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    loadLeads();
+  }
+
+  function setFilter(filter, el) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter').forEach(f => f.classList.remove('active'));
+    el.classList.add('active');
+    loadLeads();
+  }
+
+  async function loadLeads() {
+    const container = document.getElementById('leads-container');
+    container.innerHTML = '<div class="loading">Loading...</div>';
+
+    try {
+      const params = new URLSearchParams({
+        tenant_id: tid,
+        secret_key: sk,
+        filter: currentFilter,
+        tab: currentTab
+      });
+
+      const res = await fetch(`/api/get-leads?${params}`);
+      if (res.status === 401 || res.status === 403) {
+        logout();
+        return;
+      }
+
+      const data = await res.json();
+      renderLeads(data.leads || []);
+    } catch {
+      container.innerHTML = '<div class="empty"><h3>Failed to load</h3><p>Check connection and try again</p></div>';
+    }
+  }
+
+  function renderLeads(leads) {
+    const container = document.getElementById('leads-container');
+    if (!leads.length) {
+      container.innerHTML = '<div class="empty"><h3>No leads found</h3><p>Leads will appear here after calls or form submissions</p></div>';
+      return;
+    }
+
+    // Sort: urgent first always
+    const sorted = [...leads].sort((a, b) => {
+      if (a.urgency_class === 'urgent' && b.urgency_class !== 'urgent') return -1;
+      if (b.urgency_class === 'urgent' && a.urgency_class !== 'urgent') return 1;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    container.innerHTML = sorted.map(lead => `
+      <div class="lead-card ${lead.urgency_class}">
+        <div class="lead-top">
+          <div>
+            <div class="lead-name">${esc(lead.caller_name || 'Unknown Caller')}</div>
+            <div class="lead-time">${formatTime(lead.created_at)}</div>
+          </div>
+          <span class="badge ${lead.urgency_class}">${lead.urgency_class}</span>
+        </div>
+        <div class="lead-info">
+          <div class="info-item">
+            <label>Phone</label>
+            <span>${esc(lead.callback_phone || lead.caller_phone || '—')}</span>
+          </div>
+          <div class="info-item">
+            <label>Job Type</label>
+            <span>${esc(lead.job_type || '—')}</span>
+          </div>
+          <div class="info-item">
+            <label>Location</label>
+            <span>${esc(lead.location || '—')}</span>
+          </div>
+          <div class="info-item">
+            <label>Source</label>
+            <span>${lead.source === 'call' ? '📞 Call' : '📋 Form'}</span>
+          </div>
+        </div>
+        ${lead.ai_summary ? `<div class="summary">${esc(lead.ai_summary)}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  function esc(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  }
+
+  function downloadCSV() {
+    window.location.href = `/api/export-csv?tenant_id=${tid}&secret_key=${sk}`;
+  }
+
+  function logout() {
+    localStorage.clear();
+    window.location.href = '/index.html';
+  }
+
+  loadLeads();
+  // Auto refresh every 60 seconds
+  setInterval(loadLeads, 60000);
+</script>
+</body>
+</html>
