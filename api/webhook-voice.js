@@ -5,7 +5,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
-// ─── KEYWORD PRE-CHECK (same logic as form) ───
 function checkUrgencyKeywords(text) {
   const urgencyKeywords = [
     'emergency', 'urgent', 'immediately', 'right now', 'asap',
@@ -75,23 +74,33 @@ Respond ONLY with valid JSON:
 async function sendUrgentAlerts(tenant, lead) {
   const message = `URGENT CALL LEAD\nBusiness: ${tenant.business_name}\nCaller: ${lead.caller_name}\nPhone: ${lead.callback_phone || lead.caller_phone}\nJob: ${lead.job_type}\nSummary: ${lead.ai_summary}`;
 
+  // Format WhatsApp number for WaSender
+  const waNumber = (tenant.owner_whatsapp || '')
+    .replace(/\+/g, '')
+    .replace(/\s/g, '')
+    .replace(/-/g, '') + '@s.whatsapp.net';
+
   // Resend email (primary)
-  await fetch('https://api.resend.com/emails', {
+  const emailRes = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      from: 'alerts@yourdomain.com',
+      from: 'RingReady Alerts <onboarding@resend.dev>',
       to: tenant.owner_email,
-      subject: `URGENT CALL — ${lead.caller_name}`,
+      subject: `🚨 URGENT CALL — ${lead.caller_name}`,
       text: message
     })
   }).catch(e => console.error('Resend failed:', e));
+  if (emailRes) {
+    const emailData = await emailRes.json().catch(() => {});
+    console.log('Resend response:', JSON.stringify(emailData));
+  }
 
   // WaSender WhatsApp (backup)
-  await fetch('https://wasenderapi.com/api/send-message', {
+  const waRes = await fetch('https://wasenderapi.com/api/send-message', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${process.env.WASENDER_API_KEY}`,
@@ -99,16 +108,19 @@ async function sendUrgentAlerts(tenant, lead) {
     },
     body: JSON.stringify({
       sessionId: process.env.WASENDER_SESSION_ID,
-      to: tenant.owner_whatsapp,
+      to: waNumber,
       text: message
     })
   }).catch(e => console.error('WaSender failed:', e));
+  if (waRes) {
+    const waData = await waRes.json().catch(() => {});
+    console.log('WaSender response:', JSON.stringify(waData));
+  }
 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  // Respond 200 immediately so ring-ready doesn't retry
   res.status(200).json({ received: true });
 
   const tenant_id = req.query.tenant_id;
@@ -141,12 +153,11 @@ export default async function handler(req, res) {
   }
 
   if (tenant.status === 'frozen') {
-    console.log('Tenant is frozen, skipping:', tenant_id);
+    console.log('Tenant frozen, skipping:', tenant_id);
     return;
   }
 
   // ─── CLASSIFY ───
-  // Keyword check on summary first — faster and free
   const hasUrgency = checkUrgencyKeywords(summary);
   let classification;
 
@@ -195,7 +206,7 @@ export default async function handler(req, res) {
 
   // ─── ALERT IF URGENT ───
   if (classification.class === 'urgent') {
-    console.log('Sending urgent alerts for tenant:', tenant.business_name);
+    console.log('Sending urgent alerts for:', tenant.business_name);
     await sendUrgentAlerts(tenant, lead);
   }
 }
