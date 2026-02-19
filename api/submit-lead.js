@@ -130,53 +130,5 @@ Respond ONLY with valid JSON, nothing else:
     if (ccError) console.error('Campaign contact error:', ccError);
   }
 
-  // ─── STEP 5: ALERT IF URGENT ───
-  if (classification.class === 'urgent') {
-    const message = `URGENT FORM LEAD\nName: ${name}\nPhone: ${phone}\nService: ${service_type}\nLocation: ${location}\nDescription: ${description}`;
-
-    // Format WhatsApp number for WaSender
-    const waNumber = (tenant.owner_whatsapp || '')
-      .replace(/\+/g, '')
-      .replace(/\s/g, '')
-      .replace(/-/g, '') + '@s.whatsapp.net';
-
-    // Resend email (primary)
-    const emailRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: 'RingReady Alerts <onboarding@resend.dev>',
-        to: tenant.owner_email,
-        subject: `🚨 URGENT LEAD — ${name}`,
-        text: message
-      })
-    }).catch(e => console.error('Resend failed:', e));
-    if (emailRes) {
-      const emailData = await emailRes.json().catch(() => {});
-      console.log('Resend response:', JSON.stringify(emailData));
-    }
-
-    // WaSender WhatsApp (backup)
-    const waRes = await fetch('https://wasenderapi.com/api/send-message', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.WASENDER_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        sessionId: process.env.WASENDER_SESSION_ID,
-        to: waNumber,
-        text: message
-      })
-    }).catch(e => console.error('WaSender failed:', e));
-    if (waRes) {
-      const waData = await waRes.json().catch(() => {});
-      console.log('WaSender response:', JSON.stringify(waData));
-    }
-  }
-
   return res.status(200).json({ success: true, urgency: classification.class });
 }
