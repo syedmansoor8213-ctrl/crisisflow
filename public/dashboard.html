@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CrisisFlow</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d0d0d;color:#f0f0f0;min-height:100vh}
+
+/* LOGIN */
+#login{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-box{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:40px;width:100%;max-width:360px}
+.login-box h1{font-size:22px;margin-bottom:4px}
+.login-box p{color:#666;font-size:13px;margin-bottom:28px}
+label{display:block;font-size:12px;color:#777;margin-bottom:5px}
+input{width:100%;padding:11px 14px;background:#111;border:1px solid #2d2d2d;border-radius:8px;color:#fff;font-size:14px;outline:none;margin-bottom:14px}
+input:focus{border-color:#e53e3e}
+.btn-red{width:100%;padding:12px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.btn-red:hover{background:#c53030}
+.btn-red:disabled{background:#444;cursor:not-allowed}
+.err{color:#e53e3e;font-size:12px;margin-top:10px;display:none}
+
+/* APP */
+#app{display:none}
+.topbar{background:#111;border-bottom:1px solid #1e1e1e;padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.topbar-logo{font-weight:700;color:#e53e3e;font-size:17px}
+.topbar-right{display:flex;align-items:center;gap:16px}
+.biz-name{font-size:13px;color:#888}
+.csv-btn{background:none;border:1px solid #333;color:#aaa;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer}
+.csv-btn:hover{border-color:#888;color:#fff}
+.logout{font-size:12px;color:#555;cursor:pointer;padding:4px}
+.logout:hover{color:#aaa}
+
+nav{display:flex;background:#0f0f0f;border-bottom:1px solid #1a1a1a;padding:0 20px;overflow-x:auto}
+nav button{padding:13px 18px;background:none;border:none;color:#666;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+nav button.on{color:#f0f0f0;border-bottom-color:#e53e3e}
+nav button:hover{color:#ccc}
+
+.page{display:none;padding:20px;max-width:1000px;margin:0 auto}
+.page.on{display:block}
+
+/* LEADS PAGE */
+.ph{margin-bottom:20px}
+.ph h2{font-size:18px;font-weight:600}
+.ph p{color:#666;font-size:13px;margin-top:3px}
+
+.cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:700px){.cols{grid-template-columns:1fr}}
+
+.col-head{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;padding:10px 0;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.col-e .col-head{color:#fc8181}
+.col-q .col-head{color:#f6ad55}
+.col-j .col-head{color:#4a4a4a}
+.badge{padding:2px 7px;border-radius:8px;font-size:11px}
+.col-e .badge{background:#3b1111}
+.col-q .badge{background:#3b2511}
+.col-j .badge{background:#1a1a1a}
+
+.card{background:#1a1a1a;border:1px solid #252525;border-radius:10px;padding:14px;margin-bottom:10px}
+.card.e{border-left:3px solid #e53e3e}
+.card.q{border-left:3px solid #d69e2e}
+.card.j{border-left:3px solid #2d2d2d;opacity:.7}
+.card-name{font-weight:600;font-size:14px;margin-bottom:4px}
+.card-prob{font-size:12px;color:#aaa;line-height:1.5;margin-bottom:8px}
+.card-meta{display:flex;gap:10px;font-size:11px;margin-bottom:10px}
+.card-val{color:#68d391;font-weight:600}
+.card-time{color:#555}
+.card-channel{color:#666;background:#1f1f1f;padding:2px 6px;border-radius:4px}
+.call-btn{width:100%;padding:8px;background:#2d2d2d;border:none;color:#f0f0f0;border-radius:6px;font-size:12px;cursor:pointer;margin-bottom:6px}
+.call-btn:hover{background:#383838}
+.done-btn{width:100%;padding:7px;background:none;border:1px solid #2d2d2d;color:#555;border-radius:6px;font-size:11px;cursor:pointer}
+.done-btn:hover{border-color:#e53e3e;color:#e53e3e}
+.empty{text-align:center;color:#333;font-size:13px;padding:40px 0}
+
+/* CONTACTS PAGE */
+.top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.top-row h2{font-size:18px;font-weight:600}
+.tbl-wrap{background:#1a1a1a;border:1px solid #252525;border-radius:10px;overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:600px}
+th{text-align:left;padding:10px 14px;font-size:11px;color:#555;font-weight:600;background:#161616;border-bottom:1px solid #1e1e1e}
+td{padding:10px 14px;font-size:12px;border-bottom:1px solid #1a1a1a;color:#ccc}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#1e1e1e}
+
+/* SETTINGS */
+.s-card{background:#1a1a1a;border:1px solid #252525;border-radius:10px;padding:20px;margin-bottom:16px;max-width:500px}
+.s-card h3{font-size:14px;font-weight:600;margin-bottom:16px;color:#ccc}
+.s-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.save-btn{padding:10px 20px;background:#e53e3e;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px}
+.save-btn:hover{background:#c53030}
+
+/* FROZEN */
+#frozen{display:none;position:fixed;inset:0;background:#000;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:999}
+#frozen h2{color:#e53e3e;font-size:22px}
+#frozen p{color:#666;text-align:center;max-width:380px;line-height:1.6;font-size:14px}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="login-box">
+    <h1>CrisisFlow</h1>
+    <p>Your emergency lead dashboard</p>
+    <label>Email</label>
+    <input id="le" type="email" placeholder="you@business.com" onkeydown="if(event.key==='Enter')doLogin()">
+    <label>Secret Key</label>
+    <input id="lk" type="password" placeholder="sk_..." onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn-red" id="lbtn" onclick="doLogin()">Sign In</button>
+    <div class="err" id="lerr">Invalid email or secret key.</div>
+  </div>
+</div>
+
+<div id="frozen">
+  <h2>Account Suspended</h2>
+  <p>Your account has been temporarily suspended. Contact your CrisisFlow representative to reactivate.</p>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-logo">CrisisFlow</div>
+    <div class="topbar-right">
+      <span class="biz-name" id="bizname"></span>
+      <button class="csv-btn" onclick="downloadCSV()" title="Download all contacts as CSV">⬇ Contacts CSV</button>
+      <span class="logout" onclick="doLogout()">Sign out</span>
+    </div>
+  </div>
+  <nav>
+    <button class="on" onclick="goPage('leads',this)">Leads</button>
+    <button onclick="goPage('contacts',this)">Contacts</button>
+    <button onclick="goPage('settings',this)">Settings</button>
+  </nav>
+
+  <div class="page on" id="page-leads">
+    <div class="ph">
+      <h2>Incoming Leads</h2>
+      <p id="lead-sub">Loading...</p>
+    </div>
+    <div class="cols">
+      <div class="col-e">
+        <div class="col-head">🔴 Emergency <span class="badge" id="cnt-e">0</span></div>
+        <div id="col-emergency"></div>
+      </div>
+      <div class="col-q">
+        <div class="col-head">🟡 Qualified <span class="badge" id="cnt-q">0</span></div>
+        <div id="col-qualified"></div>
+      </div>
+      <div class="col-j">
+        <div class="col-head">⚫ Junk <span class="badge" id="cnt-j">0</span></div>
+        <div id="col-junk"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="page" id="page-contacts">
+    <div class="top-row">
+      <h2>All Contacts</h2>
+      <button class="csv-btn" onclick="downloadCSV()">⬇ Download CSV</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Problem</th><th>Type</th><th>Channel</th><th>Date</th></tr></thead>
+        <tbody id="contacts-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="page" id="page-settings">
+    <div class="ph"><h2>Settings</h2></div>
+    <div class="s-card">
+      <h3>Service Area</h3>
+      <label>City / Address (center of your area)</label>
+      <input id="s-area" type="text">
+      <div class="s-row">
+        <div><label>Radius (miles)</label><input id="s-radius" type="number" value="25"></div>
+        <div><label>Min Job Value ($)</label><input id="s-minval" type="number" value="200"></div>
+      </div>
+      <button class="save-btn" onclick="saveArea()">Save Area</button>
+    </div>
+    <div class="s-card">
+      <h3>Job Types You Handle</h3>
+      <label>Comma separated (e.g. plumbing, HVAC, electrical)</label>
+      <input id="s-jobs" type="text" placeholder="plumbing, electrical, HVAC">
+      <button class="save-btn" onclick="saveJobs()">Save Job Types</button>
+    </div>
+    <div class="s-card">
+      <h3>Your Phone (for emergency SMS)</h3>
+      <input id="s-phone" type="tel" placeholder="+12015551234">
+      <button class="save-btn" onclick="savePhone()">Save Phone</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let owner = null, tenantId = null, secretKey = null, allData = {};
+
+async function doLogin() {
+  const e = document.getElementById('le').value.trim();
+  const k = document.getElementById('lk').value.trim();
+  if (!e || !k) return;
+  const btn = document.getElementById('lbtn');
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  document.getElementById('lerr').style.display = 'none';
+  try {
+    const r = await fetch('/api/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:e,secret_key:k})});
+    const d = await r.json();
+    if (r.status === 429) { showErr('Too many attempts. Wait 15 mins.'); return; }
+    if (!d.success) { showErr(); return; }
+    if (d.frozen) { document.getElementById('login').style.display='none'; document.getElementById('frozen').style.display='flex'; return; }
+    owner = d.owner; tenantId = d.owner.tenant_id; secretKey = k;
+    sessionStorage.setItem('cf_o', JSON.stringify(d.owner));
+    sessionStorage.setItem('cf_k', k);
+    startApp();
+  } catch { showErr('Connection error.'); }
+  finally { btn.disabled=false; btn.textContent='Sign In'; }
+}
+
+function showErr(msg) {
+  const el = document.getElementById('lerr');
+  el.textContent = msg || 'Invalid email or secret key.';
+  el.style.display = 'block';
+}
+
+function startApp() {
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('bizname').textContent = owner.business_name;
+  document.getElementById('s-area').value = owner.service_area || '';
+  document.getElementById('s-radius').value = owner.radius_miles || 25;
+  document.getElementById('s-minval').value = owner.min_job_value || 200;
+  document.getElementById('s-jobs').value = (owner.job_types || []).join(', ');
+  document.getElementById('s-phone').value = owner.phone || '';
+  loadData();
+}
+
+async function loadData() {
+  try {
+    const r = await fetch('/api/data', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tenant_id:tenantId,secret_key:secretKey,action:'get'})});
+    if (r.status === 403) { document.getElementById('app').style.display='none'; document.getElementById('frozen').style.display='flex'; return; }
+    const d = await r.json();
+    allData = d;
+    renderLeads(d.leads || []);
+    renderContacts(d.contacts || []);
+  } catch (e) { console.error(e); }
+}
+
+function renderLeads(leads) {
+  const e = leads.filter(l=>l.urgency==='emergency');
+  const q = leads.filter(l=>l.urgency==='qualified');
+  const j = leads.filter(l=>l.urgency==='junk');
+  document.getElementById('cnt-e').textContent = e.length;
+  document.getElementById('cnt-q').textContent = q.length;
+  document.getElementById('cnt-j').textContent = j.length;
+  const total = leads.length;
+  document.getElementById('lead-sub').textContent = total === 0 ? 'No active leads right now' : `${total} lead${total!==1?'s':''} waiting`;
+  fillCol('col-emergency', e, 'e');
+  fillCol('col-qualified', q, 'q');
+  fillCol('col-junk', j, 'j');
+}
+
+function fillCol(id, leads, cls) {
+  const el = document.getElementById(id);
+  if (!leads.length) { el.innerHTML = '<div class="empty">None</div>'; return; }
+  el.innerHTML = leads.map(l => `
+    <div class="card ${cls}" id="card-${l.id}">
+      <div class="card-name">${esc(l.customer_name||'Unknown')}</div>
+      <div class="card-prob">${esc(l.problem||'—')}</div>
+      <div class="card-meta">
+        ${l.value_min?`<span class="card-val">$${l.value_min}–$${l.value_max}</span>`:''}
+        <span class="card-channel">${l.channel}</span>
+        <span class="card-time">${ago(l.created_at)}</span>
+      </div>
+      ${l.customer_phone && cls !== 'j' ? `<button class="call-btn" onclick="call('${esc(l.customer_phone)}')">📞 Call ${esc(l.customer_phone)}</button>` : ''}
+      <button class="done-btn" onclick="markDone('${l.id}')">✓ Mark Done — Remove</button>
+    </div>
+  `).join('');
+}
+
+async function markDone(id) {
+  document.getElementById('card-'+id)?.remove();
+  await fetch('/api/data', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tenant_id:tenantId,secret_key:secretKey,action:'done',lead_id:id})});
+  // Update counts
+  loadData();
+}
+
+function call(phone) { window.location.href='tel:'+phone.replace(/\D/g,''); }
+
+function renderContacts(contacts) {
+  const tb = document.getElementById('contacts-body');
+  if (!contacts.length) { tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:#444;padding:40px">No contacts yet</td></tr>'; return; }
+  tb.innerHTML = contacts.map(c=>`<tr>
+    <td>${esc(c.customer_name||'—')}</td>
+    <td>${esc(c.customer_phone||'—')}</td>
+    <td style="color:#666;font-size:11px">${esc(c.customer_address||'—')}</td>
+    <td style="color:#aaa">${esc(c.problem||'—')}</td>
+    <td><span style="color:${c.urgency==='emergency'?'#fc8181':c.urgency==='qualified'?'#f6ad55':'#555'}">${c.urgency}</span></td>
+    <td style="color:#666">${c.channel||'—'}</td>
+    <td style="color:#555">${new Date(c.created_at).toLocaleDateString()}</td>
+  </tr>`).join('');
+}
+
+function downloadCSV() {
+  const c = allData.contacts || [];
+  if (!c.length) return alert('No contacts to export yet.');
+  const hdr = ['Name','Phone','Address','Problem','Urgency','Channel','Date'];
+  const rows = c.map(x=>[x.customer_name,x.customer_phone,x.customer_address,x.problem,x.urgency,x.channel,new Date(x.created_at).toLocaleDateString()].map(v=>`"${(v||'').toString().replace(/"/g,'""')}"`).join(','));
+  const csv = [hdr.join(','),...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'crisisflow-contacts.csv';
+  a.click();
+}
+
+async function saveArea() {
+  await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tenant_id:tenantId,secret_key:secretKey,action:'settings',updates:{service_area:document.getElementById('s-area').value,radius_miles:+document.getElementById('s-radius').value,min_job_value:+document.getElementById('s-minval').value}})});
+  alert('Saved ✓');
+}
+async function saveJobs() {
+  const jobs = document.getElementById('s-jobs').value.split(',').map(s=>s.trim()).filter(Boolean);
+  await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tenant_id:tenantId,secret_key:secretKey,action:'settings',updates:{job_types:jobs}})});
+  alert('Saved ✓');
+}
+async function savePhone() {
+  await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tenant_id:tenantId,secret_key:secretKey,action:'settings',updates:{phone:document.getElementById('s-phone').value.trim()}})});
+  alert('Saved ✓');
+}
+
+function goPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('on'));
+  document.getElementById('page-'+name).classList.add('on');
+  btn.classList.add('on');
+}
+
+function doLogout() { sessionStorage.clear(); location.reload(); }
+
+function ago(d) { const m=Math.floor((Date.now()-new Date(d))/60000); return m<60?m+'m ago':Math.floor(m/60)+'h ago'; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Restore session on reload
+window.addEventListener('DOMContentLoaded',()=>{
+  const o=sessionStorage.getItem('cf_o'); const k=sessionStorage.getItem('cf_k');
+  if (o&&k) { owner=JSON.parse(o); tenantId=owner.tenant_id; secretKey=k; startApp(); }
+});
+
+// Auto-refresh leads every 60 seconds
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
