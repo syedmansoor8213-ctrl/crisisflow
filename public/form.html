@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Request Service</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f7;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px}
+.box{background:#fff;border-radius:14px;padding:32px;width:100%;max-width:460px;box-shadow:0 2px 20px rgba(0,0,0,.08)}
+.box h1{font-size:20px;color:#1a1a1a;margin-bottom:4px}
+.box p{color:#888;font-size:13px;margin-bottom:24px}
+label{display:block;font-size:12px;color:#777;font-weight:600;margin-bottom:5px}
+input,textarea,select{width:100%;padding:11px 13px;background:#f9f9f9;border:1.5px solid #e5e5e5;border-radius:8px;font-size:14px;color:#1a1a1a;outline:none;margin-bottom:14px}
+input:focus,textarea:focus,select:focus{border-color:#e53e3e;background:#fff}
+textarea{min-height:80px;resize:vertical}
+.urgency-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.urg-btn{flex:1;min-width:70px;padding:9px 4px;border:1.5px solid #e5e5e5;border-radius:7px;background:#f9f9f9;font-size:12px;cursor:pointer;text-align:center;color:#888}
+.urg-btn.sel{border-color:#e53e3e;background:#fff5f5;color:#e53e3e;font-weight:600}
+.submit{width:100%;padding:13px;background:#e53e3e;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}
+.submit:hover{background:#c53030}
+.submit:disabled{background:#ccc;cursor:not-allowed}
+#sorry{display:none;text-align:center;padding:20px 0}
+#sorry h2{color:#e53e3e;font-size:20px;margin-bottom:8px}
+#sorry p{color:#888;font-size:14px;line-height:1.6}
+#thanks{display:none;text-align:center;padding:20px 0}
+#thanks h2{color:#38a169;font-size:20px;margin-bottom:8px}
+#thanks p{color:#888;font-size:14px;line-height:1.7}
+#thanks .eta{display:inline-block;background:#f0fff4;border:1px solid #9ae6b4;color:#276749;padding:10px 20px;border-radius:8px;font-size:15px;font-weight:600;margin:12px 0}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1 id="biz-h1">Request Service</h1>
+  <p id="biz-sub">Tell us about your problem and we'll get someone to you fast.</p>
+
+  <div id="form-body">
+    <label>Your Name *</label>
+    <input id="f-name" type="text" placeholder="John Smith">
+
+    <label>Phone Number *</label>
+    <input id="f-phone" type="tel" placeholder="(555) 000-0000">
+
+    <label>Your Address *</label>
+    <input id="f-addr" type="text" placeholder="123 Main St, City, State, ZIP">
+
+    <label>What's the problem? *</label>
+    <textarea id="f-prob" placeholder="Describe what happened..."></textarea>
+
+    <label>How urgent is this?</label>
+    <div class="urgency-row" id="urg-row">
+      <div class="urg-btn" onclick="setUrg(this,3)">Not urgent</div>
+      <div class="urg-btn" onclick="setUrg(this,5)">Soon</div>
+      <div class="urg-btn" onclick="setUrg(this,7)">Urgent</div>
+      <div class="urg-btn sel" onclick="setUrg(this,10)">🚨 Emergency</div>
+    </div>
+    <input type="hidden" id="f-urg" value="10">
+
+    <button class="submit" id="subm" onclick="submitForm()">Submit Request</button>
+  </div>
+
+  <div id="sorry">
+    <h2>Sorry, we can't help</h2>
+    <p>Unfortunately this request is outside our service area or doesn't match the services we currently offer.<br><br>We hope you find help quickly!</p>
+  </div>
+
+  <div id="thanks">
+    <h2>Got it! Help is on the way.</h2>
+    <div class="eta" id="eta-msg">A technician will contact you within 30–60 minutes</div>
+    <p>Keep your phone nearby. We'll call you at the number you provided.</p>
+  </div>
+</div>
+
+<script>
+// Get tenant_id from URL: form.html?t=cf_abc123
+const params = new URLSearchParams(window.location.search);
+const TENANT = params.get('t') || '';
+const BASE = window.location.origin;
+
+// Optionally set business name from URL param: &biz=Joe's+Plumbing
+const bizName = params.get('biz');
+if (bizName) {
+  document.getElementById('biz-h1').textContent = bizName;
+  document.title = bizName + ' — Request Service';
+}
+
+function setUrg(el, val) {
+  document.querySelectorAll('.urg-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('f-urg').value = val;
+}
+
+async function submitForm() {
+  const name = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const addr = document.getElementById('f-addr').value.trim();
+  const prob = document.getElementById('f-prob').value.trim();
+  const urg = document.getElementById('f-urg').value;
+
+  if (!name||!phone||!addr||!prob) return alert('Please fill in all required fields.');
+  if (!TENANT) return alert('Form is not configured. Contact the business directly.');
+
+  const btn = document.getElementById('subm');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+
+  try {
+    const r = await fetch(BASE + '/api/form-intake', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({tenant_id:TENANT, name, phone, address:addr, problem:prob, urgency_score:urg})
+    });
+    const d = await r.json();
+
+    document.getElementById('form-body').style.display='none';
+
+    if (!d.in_area || !d.right_job_type || !d.qualified) {
+      document.getElementById('sorry').style.display='block';
+      return;
+    }
+
+    // Show appropriate wait time based on urgency
+    const etaMsg = d.urgency === 'emergency'
+      ? '🚨 A technician will contact you within 30 minutes'
+      : 'A technician will contact you within 1–2 hours';
+    document.getElementById('eta-msg').textContent = etaMsg;
+    document.getElementById('thanks').style.display='block';
+
+  } catch {
+    btn.disabled=false; btn.textContent='Submit Request';
+    alert('Connection error. Please try again or call us directly.');
+  }
+}
+</script>
+</body>
+</html>
