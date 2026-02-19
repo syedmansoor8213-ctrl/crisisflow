@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RingReady Admin</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0a; color: #e8e8e8; font-family: system-ui, sans-serif; }
+  .login { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .login-box { background: #111; border: 1px solid #222; padding: 40px; width: 360px; border-radius: 8px; }
+  .login-box h2 { margin-bottom: 24px; }
+  input[type=password] { width: 100%; background: #1a1a1a; border: 1px solid #333; color: #e8e8e8;
+    padding: 12px; border-radius: 6px; font-size: 14px; margin-bottom: 12px; }
+  .btn { background: #ff2d20; color: white; border: none; padding: 12px 20px;
+    border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+  .btn:hover { background: #e02010; }
+  .btn-ghost { background: transparent; border: 1px solid #333; color: #888;
+    padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .btn-danger { background: #2a0a0a; border: 1px solid #f44; color: #f66;
+    padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .btn-freeze { background: #1a1a0a; border: 1px solid #aa6; color: #cc8;
+    padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .btn-unfreeze { background: #0a1a0a; border: 1px solid #4a8; color: #6c8;
+    padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .header { background: #111; border-bottom: 1px solid #222; padding: 16px 24px;
+    display: flex; align-items: center; justify-content: space-between; }
+  .controls { padding: 20px 24px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .search { flex: 1; min-width: 200px; background: #1a1a1a; border: 1px solid #333;
+    color: #e8e8e8; padding: 10px 14px; border-radius: 6px; font-size: 14px; }
+  .search:focus { outline: none; border-color: #ff2d20; }
+  .filter { padding: 8px 12px; border-radius: 6px; border: 1px solid #333;
+    background: transparent; color: #888; cursor: pointer; font-size: 12px; }
+  .filter.active { background: #222; color: #e8e8e8; border-color: #555; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 12px 16px; font-size: 11px; color: #555;
+    letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid #222; }
+  td { padding: 14px 16px; font-size: 13px; border-bottom: 1px solid #1a1a1a; vertical-align: top; }
+  tr:hover td { background: #111; }
+  .status-active { color: #4d4; }
+  .status-frozen { color: #f66; }
+  .table-wrap { overflow-x: auto; padding: 0 24px 40px; }
+  .copy-btn { background: transparent; border: none; color: #555; cursor: pointer; font-size: 11px; }
+  .copy-btn:hover { color: #e8e8e8; }
+  #panel { display: none; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login" id="login-screen">
+  <div class="login-box">
+    <h2>Admin Access</h2>
+    <input type="password" id="admin-pwd" placeholder="Admin password" />
+    <button class="btn" style="width:100%" onclick="adminLogin()">Enter</button>
+    <div style="color:#f66;font-size:13px;margin-top:12px;display:none" id="login-err">Wrong password</div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="panel">
+  <div class="header">
+    <div>
+      <strong>RingReady Admin</strong>
+      <span style="color:#555;font-size:13px;margin-left:12px" id="client-count"></span>
+    </div>
+    <button class="btn-ghost" onclick="adminLogout()">Logout</button>
+  </div>
+
+  <div class="controls">
+    <input class="search" id="search" placeholder="Search by email, tenant ID, secret key, referral..." oninput="filterClients()" />
+    <button class="filter active" onclick="setFilter('all',this)">All Time</button>
+    <button class="filter" onclick="setFilter('today',this)">Today</button>
+    <button class="filter" onclick="setFilter('week',this)">Week</button>
+    <button class="filter" onclick="setFilter('month',this)">Month</button>
+    <button class="filter" onclick="setFilter('year',this)">Year</button>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Business</th>
+          <th>Email</th>
+          <th>Tenant ID</th>
+          <th>Secret Key</th>
+          <th>Service</th>
+          <th>Referral</th>
+          <th>Status</th>
+          <th>Joined</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="clients-table"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let adminPwd = '';
+  let allClients = [];
+  let currentFilter = 'all';
+
+  function adminLogin() {
+    const pwd = document.getElementById('admin-pwd').value;
+    adminPwd = pwd;
+    loadClients();
+  }
+
+  function adminLogout() {
+    adminPwd = '';
+    allClients = [];
+    document.getElementById('panel').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+  }
+
+  document.getElementById('admin-pwd').addEventListener('keydown', e => {
+    if (e.key === 'Enter') adminLogin();
+  });
+
+  async function loadClients() {
+    try {
+      const res = await fetch(`/api/admin-clients?filter=${currentFilter}`, {
+        headers: { 'x-admin-password': adminPwd }
+      });
+
+      if (res.status === 401) {
+        document.getElementById('login-err').style.display = 'block';
+        return;
+      }
+
+      const data = await res.json();
+      allClients = data.clients || [];
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('panel').style.display = 'block';
+      filterClients();
+    } catch {
+      alert('Failed to load clients');
+    }
+  }
+
+  function filterClients() {
+    const search = document.getElementById('search').value.toLowerCase();
+    const results = search ? allClients.filter(c =>
+      (c.tenant_id||'').toLowerCase().includes(search) ||
+      (c.owner_email||'').toLowerCase().includes(search) ||
+      (c.secret_key||'').toLowerCase().includes(search) ||
+      (c.referral_code||'').toLowerCase().includes(search) ||
+      (c.business_name||'').toLowerCase().includes(search)
+    ) : allClients;
+
+    document.getElementById('client-count').textContent = `${results.length} clients`;
+    renderTable(results);
+  }
+
+  function renderTable(clients) {
+    const tbody = document.getElementById('clients-table');
+    if (!clients.length) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#444;padding:40px">No clients found</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = clients.map(c => `
+      <tr id="row-${c.tenant_id}">
+        <td>
+          <strong>${esc(c.business_name)}</strong><br>
+          <span style="color:#666;font-size:12px">${esc(c.owner_name)}</span>
+        </td>
+        <td>${esc(c.owner_email)}</td>
+        <td>
+          <span style="font-family:monospace;font-size:12px">${c.tenant_id.substring(0,8)}...</span>
+          <button class="copy-btn" onclick="copy('${c.tenant_id}')">copy</button>
+        </td>
+        <td>
+          <span style="font-family:monospace">${esc(c.secret_key)}</span>
+          <button class="copy-btn" onclick="copy('${c.secret_key}')">copy</button>
+        </td>
+        <td style="font-size:12px;color:#888">${(c.service_types||[]).join(', ')}</td>
+        <td style="color:#888;font-size:12px">${esc(c.referral_code||'—')}</td>
+        <td class="status-${c.status}">${c.status}</td>
+        <td style="color:#666;font-size:12px">${new Date(c.created_at).toLocaleDateString()}</td>
+        <td style="display:flex;gap:8px;flex-wrap:wrap">
+          ${c.status === 'frozen'
+            ? `<button class="btn-unfreeze" onclick="toggleFreeze('${c.tenant_id}','unfreeze')">Unfreeze</button>`
+            : `<button class="btn-freeze" onclick="toggleFreeze('${c.tenant_id}','freeze')">Freeze</button>`
+          }
+          <button class="btn-danger" onclick="deleteClient('${c.tenant_id}','${esc(c.business_name)}')">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async function toggleFreeze(tenant_id, action) {
+    if (!confirm(`${action === 'freeze' ? 'Freeze' : 'Unfreeze'} this client?`)) return;
+    try {
+      const res = await fetch('/api/admin-freeze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPwd },
+        body: JSON.stringify({ tenant_id, action })
+      });
+      if (!res.ok) throw new Error();
+      const c = allClients.find(c => c.tenant_id === tenant_id);
+      if (c) c.status = action === 'freeze' ? 'frozen' : 'active';
+      filterClients();
+    } catch {
+      alert('Action failed');
+    }
+  }
+
+  async function deleteClient(tenant_id, name) {
+    if (!confirm(`PERMANENTLY delete "${name}" and all their data? This cannot be undone.`)) return;
+    try {
+      const res = await fetch('/api/admin-delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPwd },
+        body: JSON.stringify({ tenant_id })
+      });
+      if (!res.ok) throw new Error();
+      allClients = allClients.filter(c => c.tenant_id !== tenant_id);
+      filterClients();
+    } catch {
+      alert('Delete failed');
+    }
+  }
+
+  function setFilter(filter, el) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter').forEach(f => f.classList.remove('active'));
+    el.classList.add('active');
+    loadClients();
+  }
+
+  function copy(text) {
+    navigator.clipboard.writeText(text);
+  }
+
+  function esc(str) {
+    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
