@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CF Onboarding</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d0d0d;color:#f0f0f0;padding:30px 16px}
+.container{max-width:680px;margin:0 auto}
+h1{font-size:20px;margin-bottom:4px}
+.sub{color:#666;font-size:13px;margin-bottom:28px}
+.sec{background:#141414;border:1px solid #222;border-radius:10px;padding:20px;margin-bottom:14px}
+.sec h2{font-size:11px;color:#666;text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
+label{display:block;font-size:12px;color:#888;margin-bottom:5px}
+input,select{width:100%;padding:10px 13px;background:#0d0d0d;border:1px solid #2a2a2a;border-radius:7px;color:#fff;font-size:13px;outline:none;margin-bottom:12px}
+input:focus,select:focus{border-color:#7c3aed}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.submit{width:100%;padding:14px;background:#7c3aed;color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+.submit:hover{background:#6d28d9}
+.submit:disabled{background:#444;cursor:not-allowed}
+#done{display:none;text-align:center;padding:40px}
+#done h2{color:#68d391;font-size:22px;margin-bottom:10px}
+#done p{color:#888;line-height:1.6}
+@media(max-width:580px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>New Client Onboarding</h1>
+  <p class="sub">Fill this in with the client on screenshare. Payment must be confirmed first.</p>
+
+  <div id="form">
+  <div class="sec">
+    <h2>Sales Info</h2>
+    <div class="row">
+      <div><label>Your Name (Sales Person) *</label><input id="by" type="text"></div>
+      <div><label>Referral Person (if any)</label><input id="ref" type="text"></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Client Info</h2>
+    <div class="row">
+      <div><label>Business Name *</label><input id="biz" type="text"></div>
+      <div><label>Owner Full Name *</label><input id="oname" type="text"></div>
+    </div>
+    <div class="row">
+      <div><label>Email (used to login) *</label><input id="em" type="email"></div>
+      <div><label>Mobile (gets emergency SMS) *</label><input id="ph" type="tel"></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Service Config</h2>
+    <div class="row">
+      <div><label>Service Area (City, State) *</label><input id="area" type="text" placeholder="Austin, TX"></div>
+      <div><label>Radius (miles)</label><input id="rad" type="number" value="25"></div>
+    </div>
+    <div class="row">
+      <div><label>Min Job Value ($)</label><input id="minv" type="number" value="200"></div>
+      <div><label>Timezone</label>
+        <select id="tz">
+          <option value="America/New_York">Eastern</option>
+          <option value="America/Chicago">Central</option>
+          <option value="America/Denver">Mountain</option>
+          <option value="America/Los_Angeles">Pacific</option>
+        </select>
+      </div>
+    </div>
+    <label>Job Types (comma separated)</label>
+    <input id="jobs" type="text" placeholder="plumbing, HVAC, electrical, locksmith">
+  </div>
+
+  <div class="sec">
+    <h2>Vapi</h2>
+    <label>Vapi Assistant ID (from vapi.ai — set this up first, see guide)</label>
+    <input id="vaid" type="text" placeholder="asst_...">
+  </div>
+
+  <button class="submit" id="sbtn" onclick="submit()">Submit to Pending Queue</button>
+  </div>
+
+  <div id="done">
+    <h2>✓ Submitted</h2>
+    <p>Go to admin.html → Pending Queue → click Approve to issue credentials.<br>Then manually send the secret key to the client directly (not via email).</p>
+  </div>
+</div>
+
+<script>
+async function submit() {
+  const required = {biz:'Business Name',oname:'Owner Name',em:'Email',ph:'Phone',area:'Service Area'};
+  for(const [id,label] of Object.entries(required)){
+    if(!document.getElementById(id).value.trim()){alert('Required: '+label);document.getElementById(id).focus();return}
+  }
+  const btn=document.getElementById('sbtn');
+  btn.disabled=true;btn.textContent='Submitting...';
+  const form_data={
+    business_name:document.getElementById('biz').value.trim(),
+    owner_name:document.getElementById('oname').value.trim(),
+    email:document.getElementById('em').value.trim().toLowerCase(),
+    phone:document.getElementById('ph').value.trim(),
+    service_area:document.getElementById('area').value.trim(),
+    radius_miles:+document.getElementById('rad').value||25,
+    min_job_value:+document.getElementById('minv').value||200,
+    timezone:document.getElementById('tz').value,
+    job_types:document.getElementById('jobs').value.split(',').map(s=>s.trim()).filter(Boolean),
+    vapi_assistant_id:document.getElementById('vaid').value.trim(),
+    referral_name:document.getElementById('ref').value.trim()
+  };
+  try{
+    const r=await fetch('/api/admin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'submit_onboarding',password:'PLACEHOLDER',submitted_by:document.getElementById('by').value.trim(),form_data})});
+    if(r.ok){document.getElementById('form').style.display='none';document.getElementById('done').style.display='block'}
+    else{alert('Error submitting. Check your connection.');btn.disabled=false;btn.textContent='Submit to Pending Queue'}
+  }catch{alert('Connection error.');btn.disabled=false;btn.textContent='Submit to Pending Queue'}
+}
+</script>
+</body>
+</html>
