@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Request Service</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #f8f8f8; font-family: system-ui, sans-serif; padding: 40px 20px; }
+  .container { max-width: 480px; margin: 0 auto; }
+  .logo { font-size: 22px; font-weight: 700; margin-bottom: 32px; }
+  h2 { font-size: 24px; margin-bottom: 8px; color: #111; }
+  p { color: #666; font-size: 14px; margin-bottom: 28px; }
+  .field { margin-bottom: 18px; }
+  label { font-size: 13px; color: #555; display: block; margin-bottom: 6px; font-weight: 500; }
+  input, select, textarea { width: 100%; border: 1px solid #ddd; padding: 12px 14px;
+    border-radius: 6px; font-size: 14px; background: white; color: #111; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #ff2d20; }
+  textarea { height: 100px; resize: vertical; }
+  button { width: 100%; background: #ff2d20; color: white; border: none; padding: 15px;
+    border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  button:disabled { background: #ccc; }
+  .error { background: #fff0f0; border: 1px solid #fcc; color: #c00;
+    padding: 12px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; display: none; }
+  .step { display: none; }
+  .step.active { display: block; }
+  .progress { display: flex; gap: 8px; margin-bottom: 32px; }
+  .progress-step { flex: 1; height: 4px; border-radius: 2px; background: #e0e0e0; }
+  .progress-step.done { background: #ff2d20; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo" id="biz-logo">Request Service</div>
+
+  <div class="progress">
+    <div class="progress-step done" id="p1"></div>
+    <div class="progress-step" id="p2"></div>
+  </div>
+
+  <div class="error" id="err"></div>
+
+  <!-- STEP 1 -->
+  <div class="step active" id="step1">
+    <h2>Tell us about your job</h2>
+    <p>We'll check if we serve your area first.</p>
+
+    <div class="field">
+      <label>Your Name *</label>
+      <input type="text" id="name" placeholder="John Smith" />
+    </div>
+    <div class="field">
+      <label>Phone Number *</label>
+      <input type="tel" id="phone" placeholder="+1 555 0100" />
+    </div>
+    <div class="field">
+      <label>What service do you need? *</label>
+      <input type="text" id="service_type" placeholder="e.g. Clogged drain, AC repair..." />
+    </div>
+    <div class="field">
+      <label>Your Location (City or Zip) *</label>
+      <input type="text" id="location" placeholder="Houston TX or 77001" />
+    </div>
+    <button onclick="checkStep1()">Check Availability →</button>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step" id="step2">
+    <h2>Great — we serve your area!</h2>
+    <p>Tell us more so we can prepare for your job.</p>
+
+    <div class="field">
+      <label>Describe the issue in detail *</label>
+      <textarea id="description" placeholder="E.g. My basement is flooding, water coming from burst pipe under the sink..."></textarea>
+    </div>
+    <div class="field">
+      <label>How urgent is this?</label>
+      <select id="urgency_hint">
+        <option value="emergency">Emergency — need help NOW</option>
+        <option value="today">Today if possible</option>
+        <option value="scheduled">I can schedule a time</option>
+      </select>
+    </div>
+    <button onclick="submitStep2()">Submit Request</button>
+  </div>
+
+</div>
+
+<script>
+  // Get tenant_id from URL: form.html?t=TENANT_ID
+  const params = new URLSearchParams(window.location.search);
+  const tenant_id = params.get('t');
+
+  if (!tenant_id) {
+    document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#999">Invalid form link.</div>';
+  }
+
+  let step1Data = {};
+
+  async function checkStep1() {
+    const name = document.getElementById('name').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const service_type = document.getElementById('service_type').value.trim();
+    const location = document.getElementById('location').value.trim();
+
+    if (!name || !phone || !service_type || !location) {
+      return showError('Please fill in all fields.');
+    }
+
+    showError('');
+    const btn = document.querySelector('#step1 button');
+    btn.disabled = true;
+    btn.textContent = 'Checking...';
+
+    try {
+      const res = await fetch('/api/qualify-form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id, name, phone, service_type, location })
+      });
+      const data = await res.json();
+
+      if (!data.qualified) {
+        window.location.href = '/sorry.html';
+        return;
+      }
+
+      step1Data = { name, phone, service_type, location };
+      document.getElementById('step1').classList.remove('active');
+      document.getElementById('step2').classList.add('active');
+      document.getElementById('p2').classList.add('done');
+
+    } catch {
+      showError('Connection error. Please try again.');
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Check Availability →';
+  }
+
+  async function submitStep2() {
+    const description = document.getElementById('description').value.trim();
+    if (!description) return showError('Please describe the issue.');
+
+    const btn = document.querySelector('#step2 button');
+    btn.disabled = true;
+    btn.textContent = 'Submitting...';
+
+    try {
+      const res = await fetch('/api/submit-lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenant_id, ...step1Data, description })
+      });
+
+      if (!res.ok) throw new Error();
+      window.location.href = '/confirmed.html';
+    } catch {
+      showError('Submission failed. Please call us directly.');
+      btn.disabled = false;
+      btn.textContent = 'Submit Request';
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('err');
+    el.textContent = msg;
+    el.style.display = msg ? 'block' : 'none';
+  }
+</script>
+</body>
+</html>
