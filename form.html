@@ -4,34 +4,323 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Request Service</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --bg: #f7f7f5;
+    --surface: #ffffff;
+    --border: #e8e8e4;
+    --border2: #d4d4ce;
+    --text: #111111;
+    --muted: #888;
+    --dim: #ccc;
+    --red: #ff3b2f;
+    --red-dim: rgba(255,59,47,0.06);
+    --red-border: rgba(255,59,47,0.2);
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #f8f8f8; font-family: system-ui, sans-serif; padding: 40px 20px; }
-  .container { max-width: 480px; margin: 0 auto; }
-  .logo { font-size: 22px; font-weight: 700; margin-bottom: 32px; }
-  h2 { font-size: 24px; margin-bottom: 8px; color: #111; }
-  p { color: #666; font-size: 14px; margin-bottom: 28px; }
-  .field { margin-bottom: 18px; }
-  label { font-size: 13px; color: #555; display: block; margin-bottom: 6px; font-weight: 500; }
-  input, select, textarea { width: 100%; border: 1px solid #ddd; padding: 12px 14px;
-    border-radius: 6px; font-size: 14px; background: white; color: #111; }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: #ff2d20; }
-  textarea { height: 100px; resize: vertical; }
-  button { width: 100%; background: #ff2d20; color: white; border: none; padding: 15px;
-    border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; }
-  button:disabled { background: #ccc; }
-  .error { background: #fff0f0; border: 1px solid #fcc; color: #c00;
-    padding: 12px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; display: none; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── LAYOUT ── */
+  .page {
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  /* ── LOGO ── */
+  .logo {
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--red);
+    border-radius: 50%;
+    box-shadow: 0 0 6px var(--red);
+  }
+
+  /* ── PROGRESS ── */
+  .progress {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 40px;
+  }
+
+  .progress-step {
+    flex: 1;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border);
+    transition: background 0.4s ease;
+  }
+
+  .progress-step.done { background: var(--red); }
+
+  /* ── STEP ── */
   .step { display: none; }
-  .step.active { display: block; }
-  .progress { display: flex; gap: 8px; margin-bottom: 32px; }
-  .progress-step { flex: 1; height: 4px; border-radius: 2px; background: #e0e0e0; }
-  .progress-step.done { background: #ff2d20; }
+  .step.active {
+    display: block;
+    animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* ── HEADING ── */
+  .step-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--red);
+    margin-bottom: 10px;
+  }
+
+  h2 {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+
+  .step-sub {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 32px;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+
+  /* ── FIELDS ── */
+  .field {
+    margin-bottom: 16px;
+  }
+
+  .field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    display: block;
+    margin-bottom: 7px;
+    letter-spacing: 0.3px;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 13px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 500;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  .field input::placeholder,
+  .field textarea::placeholder {
+    color: var(--dim);
+    font-weight: 400;
+  }
+
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    border-color: var(--red);
+    box-shadow: 0 0 0 3px var(--red-dim);
+  }
+
+  .field textarea {
+    height: 110px;
+    resize: none;
+    line-height: 1.6;
+  }
+
+  .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+    cursor: pointer;
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  /* ── SUBMIT BTN ── */
+  .submit-btn {
+    width: 100%;
+    background: var(--red);
+    color: white;
+    border: none;
+    padding: 15px 20px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.2px;
+  }
+
+  .submit-btn:hover {
+    background: #e02d22;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(255,59,47,0.25);
+  }
+
+  .submit-btn:active { transform: translateY(0); }
+
+  .submit-btn:disabled {
+    background: var(--dim);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* ── SPINNER ── */
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  .submit-btn.loading .spinner { display: block; }
+  .submit-btn.loading .btn-text { opacity: 0.7; }
+
+  /* ── ERROR ── */
+  .error {
+    background: rgba(255,59,47,0.06);
+    border: 1px solid rgba(255,59,47,0.2);
+    color: var(--red);
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    display: none;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  /* ── DIVIDER ── */
+  .form-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .form-divider::before,
+  .form-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .form-divider span {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── TRUST ROW ── */
+  .trust-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 24px;
+  }
+
+  .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .trust-icon { font-size: 12px; }
+
+  /* ── INVALID LINK ── */
+  .invalid-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    text-align: center;
+    padding: 24px;
+  }
+
+  .invalid-wrap h2 { font-size: 20px; margin-bottom: 8px; }
+  .invalid-wrap p { color: var(--muted); font-size: 14px; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 480px) {
+    .page { padding: 36px 20px 60px; }
+    h2 { font-size: 24px; }
+    .field-row { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
-<div class="container">
-  <div class="logo" id="biz-logo">Request Service</div>
+
+<div class="page" id="page">
+
+  <div class="logo">
+    <div class="logo-dot"></div>
+    <span id="biz-logo">CrisisFlow</span>
+  </div>
 
   <div class="progress">
     <div class="progress-step done" id="p1"></div>
@@ -40,77 +329,116 @@
 
   <div class="error" id="err"></div>
 
-  <!-- STEP 1 -->
+  <!-- ── STEP 1 ── -->
   <div class="step active" id="step1">
-    <h2>Tell us about your job</h2>
-    <p>We'll check if we serve your area first.</p>
+    <div class="step-label">Step 1 of 2</div>
+    <h2>What do you<br>need help with?</h2>
+    <p class="step-sub">We'll check if we serve your area before going further.</p>
 
-    <div class="field">
-      <label>Your Name *</label>
-      <input type="text" id="name" placeholder="John Smith" />
+    <div class="field-row">
+      <div class="field">
+        <label>Your Name *</label>
+        <input type="text" id="name" placeholder="John Smith" autocomplete="name" />
+      </div>
+      <div class="field">
+        <label>Phone Number *</label>
+        <input type="tel" id="phone" placeholder="+1 555 0100" autocomplete="tel" />
+      </div>
     </div>
-    <div class="field">
-      <label>Phone Number *</label>
-      <input type="tel" id="phone" placeholder="+1 555 0100" />
-    </div>
+
     <div class="field">
       <label>What service do you need? *</label>
-      <input type="text" id="service_type" placeholder="e.g. Clogged drain, AC repair..." />
+      <input type="text" id="service_type" placeholder="e.g. AC repair, clogged drain, lockout..." />
     </div>
+
     <div class="field">
-      <label>Your Location (City or Zip) *</label>
-      <input type="text" id="location" placeholder="Houston TX or 77001" />
+      <label>Your Location *</label>
+      <input type="text" id="location" placeholder="City, state or zip code" autocomplete="address-level2" />
     </div>
-    <button onclick="checkStep1()">Check Availability →</button>
+
+    <button class="submit-btn" id="btn1" onclick="checkStep1()">
+      <div class="spinner"></div>
+      <span class="btn-text">Check Availability →</span>
+    </button>
+
+    <div class="trust-row">
+      <div class="trust-item"><span class="trust-icon">🔒</span> secure</div>
+      <div class="trust-item"><span class="trust-icon">⚡</span> instant check</div>
+      <div class="trust-item"><span class="trust-icon">📞</span> callback</div>
+    </div>
   </div>
 
-  <!-- STEP 2 -->
+  <!-- ── STEP 2 ── -->
   <div class="step" id="step2">
-    <h2>Great — we serve your area!</h2>
-    <p>Tell us more so we can prepare for your job.</p>
+    <div class="step-label">Step 2 of 2</div>
+    <h2>We've got you<br>covered. ✓</h2>
+    <p class="step-sub">Tell us more about the issue so we can prepare the right technician.</p>
 
     <div class="field">
-      <label>Describe the issue in detail *</label>
-      <textarea id="description" placeholder="E.g. My basement is flooding, water coming from burst pipe under the sink..."></textarea>
+      <label>Describe the issue *</label>
+      <textarea id="description" placeholder="E.g. My basement is flooding from a burst pipe under the sink — it's getting worse..."></textarea>
     </div>
+
+    <div class="form-divider"><span>urgency</span></div>
+
     <div class="field">
       <label>How urgent is this?</label>
       <select id="urgency_hint">
-        <option value="emergency">Emergency — need help NOW</option>
-        <option value="today">Today if possible</option>
-        <option value="scheduled">I can schedule a time</option>
+        <option value="emergency">🚨 Emergency — need help right now</option>
+        <option value="today">⏰ Today if possible</option>
+        <option value="scheduled">📅 I can schedule a time</option>
       </select>
     </div>
-    <button onclick="submitStep2()">Submit Request</button>
+
+    <button class="submit-btn" id="btn2" onclick="submitStep2()">
+      <div class="spinner"></div>
+      <span class="btn-text">Submit Request →</span>
+    </button>
+
+    <div class="trust-row">
+      <div class="trust-item"><span class="trust-icon">⚡</span> 30–90 min callback</div>
+      <div class="trust-item"><span class="trust-icon">🔒</span> info stays private</div>
+    </div>
   </div>
 
 </div>
 
 <script>
-  // Get tenant_id from URL: form.html?t=TENANT_ID
-  const params = new URLSearchParams(window.location.search);
+  const params    = new URLSearchParams(window.location.search);
   const tenant_id = params.get('t');
+  const bizName   = params.get('biz');
 
+  // Invalid link guard
   if (!tenant_id) {
-    document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#999">Invalid form link.</div>';
+    document.getElementById('page').innerHTML = `
+      <div class="invalid-wrap">
+        <div>
+          <h2>Invalid link</h2>
+          <p>This form link is not valid.<br>Please contact the business directly.</p>
+        </div>
+      </div>`;
+  }
+
+  // Set business name if provided
+  if (bizName) {
+    document.getElementById('biz-logo').textContent = decodeURIComponent(bizName);
   }
 
   let step1Data = {};
 
+  // ── STEP 1 ──
   async function checkStep1() {
-    const name = document.getElementById('name').value.trim();
-    const phone = document.getElementById('phone').value.trim();
+    const name         = document.getElementById('name').value.trim();
+    const phone        = document.getElementById('phone').value.trim();
     const service_type = document.getElementById('service_type').value.trim();
-    const location = document.getElementById('location').value.trim();
+    const location     = document.getElementById('location').value.trim();
 
     if (!name || !phone || !service_type || !location) {
-      return showError('Please fill in all fields.');
+      return showError('Please fill in all fields before continuing.');
     }
 
     showError('');
-    const btn = document.querySelector('#step1 button');
-    btn.disabled = true;
-    btn.textContent = 'Checking...';
+    setLoading('btn1', true, 'Checking...');
 
     try {
       const res = await fetch('/api/qualify-form', {
@@ -118,6 +446,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenant_id, name, phone, service_type, location })
       });
+
       const data = await res.json();
 
       if (!data.qualified) {
@@ -129,22 +458,24 @@
       document.getElementById('step1').classList.remove('active');
       document.getElementById('step2').classList.add('active');
       document.getElementById('p2').classList.add('done');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
 
     } catch {
-      showError('Connection error. Please try again.');
+      showError('Connection error. Please check your internet and try again.');
+      setLoading('btn1', false, 'Check Availability →');
     }
-
-    btn.disabled = false;
-    btn.textContent = 'Check Availability →';
   }
 
+  // ── STEP 2 ──
   async function submitStep2() {
     const description = document.getElementById('description').value.trim();
-    if (!description) return showError('Please describe the issue.');
 
-    const btn = document.querySelector('#step2 button');
-    btn.disabled = true;
-    btn.textContent = 'Submitting...';
+    if (!description) {
+      return showError('Please describe the issue so we can help you better.');
+    }
+
+    showError('');
+    setLoading('btn2', true, 'Submitting...');
 
     try {
       const res = await fetch('/api/submit-lead', {
@@ -155,18 +486,34 @@
 
       if (!res.ok) throw new Error();
       window.location.href = '/confirmed.html';
+
     } catch {
-      showError('Submission failed. Please call us directly.');
-      btn.disabled = false;
-      btn.textContent = 'Submit Request';
+      showError('Submission failed. Please try again or call us directly.');
+      setLoading('btn2', false, 'Submit Request →');
     }
+  }
+
+  // ── HELPERS ──
+  function setLoading(btnId, loading, text) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = loading;
+    btn.querySelector('.btn-text').textContent = text;
+    if (loading) btn.classList.add('loading');
+    else btn.classList.remove('loading');
   }
 
   function showError(msg) {
     const el = document.getElementById('err');
     el.textContent = msg;
     el.style.display = msg ? 'block' : 'none';
+    if (msg) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+
+  // Enter key support
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (document.getElementById('step1').classList.contains('active')) checkStep1();
+  });
 </script>
 </body>
 </html>
