@@ -23,23 +23,22 @@ function checkUrgencyKeywords(text) {
 async function classifyWithGemini(tenant, summary, caller_name, job_type) {
   const prompt = `You are a lead urgency classifier for a local service business.
 
-Business serves: ${tenant.service_types.join(', ')}
-Business location: ${tenant.service_location}
+Business serves: ${tenant.service_types ? tenant.service_types.join(', ') : 'General Services'}
+Business location: ${tenant.service_location || 'Local Area'}
 Caller name: ${caller_name || 'Unknown'}
 Call label: ${job_type || 'Unknown'}
 Call summary: ${summary || 'No summary'}
 
 Classify as URGENT if:
 - Active emergency, caller needs someone immediately
-- Flooding, no power, locked out, gas leak, burst pipe
+- Flooding, no power, locked out, gas leak, burst pipe, or total AC failure in heat
 - Tone sounds distressed or panicked
-- Could cause damage or safety risk if not fixed soon
 
 Classify as QUALIFIED if:
-- Real job, matches service type and location, not emergency
+- Real job, matches service type and location, but not an immediate emergency
 
 Classify as JUNK if:
-- Wrong service, wrong location, spam, not a real job
+- Wrong service, wrong location (far from ${tenant.service_location}), spam, or a hang-up
 
 Respond ONLY with valid JSON:
 {"class": "urgent", "reason": "brief reason"}`;
@@ -59,31 +58,27 @@ Respond ONLY with valid JSON:
 
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    console.log('Gemini voice response:', text);
-
-    if (text.includes('"urgent"')) return { class: 'urgent', reason: 'gemini urgent' };
-    if (text.includes('"junk"')) return { class: 'junk', reason: 'gemini junk' };
-    return { class: 'qualified', reason: 'gemini qualified' };
+    
+    if (text.includes('"urgent"')) return { class: 'urgent', reason: 'gemini detected crisis' };
+    if (text.includes('"junk"')) return { class: 'junk', reason: 'out of scope or spam' };
+    return { class: 'qualified', reason: 'valid lead' };
 
   } catch (err) {
-    console.error('Gemini failed:', err);
-    return { class: 'qualified', reason: 'gemini error fallback' };
+    console.error('Gemini classification error:', err);
+    return { class: 'qualified', reason: 'fallback after error' };
   }
 }
 
 export default async function handler(req, res) {
+  // 1. Immediate Response to RingReady
   if (req.method !== 'POST') return res.status(405).end();
-
   res.status(200).json({ received: true });
 
-  const tenant_id = req.query.tenant_id;
+  const { tenant_id } = req.query;
   if (!tenant_id) {
-    console.error('No tenant_id in webhook URL');
+    console.error('Missing tenant_id');
     return;
   }
-
-  console.log('Webhook received for tenant:', tenant_id);
-  console.log('Webhook body:', JSON.stringify(req.body));
 
   const {
     from_phone_number,
@@ -93,67 +88,61 @@ export default async function handler(req, res) {
     summary
   } = req.body;
 
-  // ─── FETCH TENANT ───
-  const { data: tenant, error } = await supabase
+  // 2. Fetch Tenant Settings
+  const { data: tenant, error: tenantError } = await supabase
     .from('clients')
     .select('*')
     .eq('tenant_id', tenant_id)
     .single();
 
-  if (error || !tenant) {
-    console.error('Tenant not found:', tenant_id);
+  if (tenantError || !tenant || tenant.status === 'frozen') {
+    console.error('Tenant unavailable:', tenant_id);
     return;
   }
 
-  if (tenant.status === 'frozen') {
-    console.log('Tenant frozen, skipping:', tenant_id);
-    return;
-  }
+  // 3. Extract Location from Summary (e.g., "in Islamabad")
+  // Searches for the word after "in" or "at", or defaults to the tenant's primary city
+  const locationRegex = /(?:in|at|near|location:)\s+([A-Z][a-z]+)/i;
+  const match = summary?.match(locationRegex);
+  const extractedLocation = match ? match[1] : (tenant.service_location || 'Unknown');
 
-  // ─── CLASSIFY ───
+  // 4. Urgency Classification
   const hasUrgency = checkUrgencyKeywords(summary);
   let classification;
 
   if (hasUrgency) {
-    classification = { class: 'urgent', reason: 'urgency keywords in call summary' };
-    console.log('Keyword match on call summary — urgent');
+    classification = { class: 'urgent', reason: 'Keyword trigger' };
   } else {
     classification = await classifyWithGemini(tenant, summary, caller_name, call_label);
   }
 
-  console.log('Classification result:', classification);
-
-  // ─── SAVE LEAD ───
-  const lead = {
+  // 5. Save Lead to Supabase
+  const leadData = {
     tenant_id,
     source: 'call',
     caller_name: caller_name || 'Unknown',
     caller_phone: from_phone_number || null,
     callback_phone: callback_number || from_phone_number || null,
     job_type: call_label || 'General Inquiry',
-    location: null,
+    location: extractedLocation,
     urgency_class: classification.class,
     ai_summary: summary || 'No summary provided',
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
   };
 
-  const { error: leadError } = await supabase.from('leads').insert(lead);
-  if (leadError) console.error('Lead insert error:', leadError);
-  else console.log('Lead saved successfully');
+  const { error: leadInsertError } = await supabase.from('leads').insert(leadData);
+  if (leadInsertError) console.error('Error saving lead:', leadInsertError);
 
-  // ─── SAVE TO CAMPAIGN CONTACTS IMMEDIATELY ───
-  const contactName = caller_name || 'Unknown';
-  const contactPhone = callback_number || from_phone_number;
-
-  if (contactPhone && contactName !== 'Unknown') {
-    const { error: ccError } = await supabase.from('campaign_contacts').insert({
+  // 6. Add to Campaign Contacts (if valid contact info exists)
+  const finalPhone = callback_number || from_phone_number;
+  if (finalPhone && caller_name !== 'Unknown') {
+    const { error: contactError } = await supabase.from('campaign_contacts').insert({
       tenant_id,
-      name: contactName,
-      phone: contactPhone,
+      name: caller_name,
+      phone: finalPhone,
       service_type: call_label || 'General',
       source: 'call'
     });
-    if (ccError) console.error('Campaign contact error:', ccError);
-    else console.log('Campaign contact saved');
+    if (contactError) console.error('Error saving campaign contact:', contactError);
   }
 }
