@@ -3,41 +3,318 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RingReady — Login</title>
+<title>CrisisFlow — Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
+  :root {
+    --bg: #080808;
+    --surface: #0f0f0f;
+    --surface2: #161616;
+    --border: #1e1e1e;
+    --border2: #2a2a2a;
+    --text: #f0f0f0;
+    --muted: #555;
+    --red: #ff3b2f;
+    --red-dim: rgba(255,59,47,0.08);
+    --red-glow: rgba(255,59,47,0.15);
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0a0a0a; color: #e8e8e8; font-family: system-ui, sans-serif;
-    display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-  .box { background: #111; border: 1px solid #222; padding: 48px; width: 100%; max-width: 400px; border-radius: 8px; }
-  h1 { font-size: 24px; margin-bottom: 8px; }
-  p { color: #666; font-size: 14px; margin-bottom: 32px; }
-  label { font-size: 13px; color: #888; display: block; margin-bottom: 8px; }
-  input { width: 100%; background: #1a1a1a; border: 1px solid #333; color: #e8e8e8;
-    padding: 12px 16px; border-radius: 6px; font-size: 15px; letter-spacing: 2px; margin-bottom: 16px; }
-  input:focus { outline: none; border-color: #ff2d20; }
-  button { width: 100%; background: #ff2d20; color: white; border: none; padding: 14px;
-    border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; }
-  button:hover { background: #e02010; }
-  .error { background: #2a0a0a; border: 1px solid #ff2d20; color: #ff6b6b;
-    padding: 12px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; display: none; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+  }
+
+  /* ── BACKGROUND EFFECTS ── */
+  .bg-glow {
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 800px;
+    height: 600px;
+    background: radial-gradient(ellipse at center, rgba(255,59,47,0.06) 0%, transparent 65%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── CARD ── */
+  .card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 400px;
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* ── LOGO ── */
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 48px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--red);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    box-shadow: 0 0 20px rgba(255,59,47,0.3);
+  }
+
+  .logo-text {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span { color: var(--red); }
+
+  /* ── HEADING ── */
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+  }
+
+  .sub {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 40px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  /* ── INPUT ── */
+  .input-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .input-wrap {
+    position: relative;
+    margin-bottom: 14px;
+  }
+
+  .input-wrap input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 16px 20px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 3px;
+    outline: none;
+    transition: all 0.2s;
+  }
+
+  .input-wrap input::placeholder {
+    color: var(--muted);
+    letter-spacing: 2px;
+    font-size: 13px;
+  }
+
+  .input-wrap input:focus {
+    border-color: var(--red);
+    background: var(--surface2);
+    box-shadow: 0 0 0 3px var(--red-dim);
+  }
+
+  /* ── BUTTON ── */
+  .login-btn {
+    width: 100%;
+    background: var(--red);
+    color: white;
+    border: none;
+    padding: 16px 20px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Syne', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .login-btn:hover {
+    background: #e02d22;
+    transform: translateY(-1px);
+    box-shadow: 0 12px 32px rgba(255,59,47,0.3);
+  }
+
+  .login-btn:active { transform: translateY(0); box-shadow: none; }
+
+  .login-btn:disabled {
+    background: var(--muted);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* ── SPINNER ── */
+  .spinner {
+    width: 15px;
+    height: 15px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+
+  .login-btn.loading .spinner { display: block; }
+
+  /* ── ERROR ── */
+  .error {
+    background: var(--red-dim);
+    border: 1px solid rgba(255,59,47,0.2);
+    color: #ff6b6b;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    margin-bottom: 14px;
+    display: none;
+    letter-spacing: 0.5px;
+    line-height: 1.5;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    margin-top: 32px;
+    text-align: center;
+  }
+
+  .footer p {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--border2);
+    letter-spacing: 2px;
+    line-height: 2;
+  }
+
+  .footer a {
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .footer a:hover { color: var(--text); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
 </style>
 </head>
 <body>
-<div class="box">
-  <h1>RingReady</h1>
-  <p>Enter your secret key to access your dashboard</p>
+
+<div class="bg-glow"></div>
+<div class="bg-grid"></div>
+
+<div class="card">
+
+  <div class="logo-row">
+    <div class="logo-icon">⚡</div>
+    <div class="logo-text">Crisis<span>Flow</span></div>
+  </div>
+
+  <div class="eyebrow">Client Portal</div>
+  <h1>Welcome<br>back.</h1>
+  <p class="sub">Enter your secret key to access your lead dashboard.</p>
+
+  <span class="input-label">Secret Key</span>
+
   <div class="error" id="err"></div>
-  <label>Secret Key</label>
-  <input type="text" id="key" placeholder="RR-XXXXXXXXXXXX" autocomplete="off" />
-  <button onclick="login()">Access Dashboard</button>
+
+  <div class="input-wrap">
+    <input
+      type="text"
+      id="key"
+      placeholder="RR-XXXXXXXXXXXX"
+      autocomplete="off"
+      spellcheck="false"
+    />
+  </div>
+
+  <button class="login-btn" id="login-btn" onclick="login()">
+    <div class="spinner"></div>
+    <span id="btn-text">Access Dashboard →</span>
+  </button>
+
+  <div class="footer">
+    <p>
+      Don't have a key? <a href="/onboarding.html">Get started</a><br>
+      Need help? Contact your account manager
+    </p>
+  </div>
+
 </div>
+
 <script>
-  // Already logged in?
-  if (localStorage.getItem('rr_tenant_id')) window.location.href = '/dashboard.html';
+  // Already logged in — skip to dashboard
+  if (localStorage.getItem('rr_tenant_id')) {
+    window.location.href = '/dashboard.html';
+  }
 
   async function login() {
     const key = document.getElementById('key').value.trim().toUpperCase();
-    if (!key) return showError('Enter your secret key');
+    if (!key) return showError('Please enter your secret key.');
+
+    setLoading(true);
+    hideError();
 
     try {
       const res = await fetch('/api/login', {
@@ -45,15 +322,36 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ secret_key: key })
       });
+
       const data = await res.json();
-      if (!res.ok) return showError(data.error || 'Invalid key');
+
+      if (!res.ok) {
+        setLoading(false);
+        return showError(data.error || 'Invalid secret key. Check and try again.');
+      }
 
       localStorage.setItem('rr_tenant_id', data.tenant_id);
       localStorage.setItem('rr_secret_key', key);
       localStorage.setItem('rr_business_name', data.business_name);
+
+      document.getElementById('btn-text').textContent = 'Loading dashboard...';
       window.location.href = '/dashboard.html';
+
     } catch {
-      showError('Connection error. Try again.');
+      setLoading(false);
+      showError('Connection error. Check your internet and try again.');
+    }
+  }
+
+  function setLoading(on) {
+    const btn = document.getElementById('login-btn');
+    btn.disabled = on;
+    if (on) {
+      btn.classList.add('loading');
+      document.getElementById('btn-text').textContent = 'Checking...';
+    } else {
+      btn.classList.remove('loading');
+      document.getElementById('btn-text').textContent = 'Access Dashboard →';
     }
   }
 
@@ -63,8 +361,19 @@
     el.style.display = 'block';
   }
 
+  function hideError() {
+    document.getElementById('err').style.display = 'none';
+  }
+
   document.getElementById('key').addEventListener('keydown', e => {
     if (e.key === 'Enter') login();
+  });
+
+  // Auto uppercase as user types
+  document.getElementById('key').addEventListener('input', e => {
+    const pos = e.target.selectionStart;
+    e.target.value = e.target.value.toUpperCase();
+    e.target.setSelectionRange(pos, pos);
   });
 </script>
 </body>
