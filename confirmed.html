@@ -2,35 +2,289 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Request Received</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #f8f8f8; font-family: system-ui, sans-serif;
-    display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-  .box { max-width: 480px; text-align: center; }
-  .icon { font-size: 56px; margin-bottom: 24px; }
-  h2 { font-size: 26px; margin-bottom: 16px; color: #111; }
-  .time-box { background: #fff; border: 2px solid #ff2d20; border-radius: 12px;
-    padding: 24px; margin: 24px 0; }
-  .time-box .big { font-size: 28px; font-weight: 700; color: #ff2d20; }
-  .time-box p { color: #666; font-size: 14px; margin-top: 8px; }
-  p { color: #666; line-height: 1.7; font-size: 15px; }
-  .note { font-size: 13px; color: #999; margin-top: 20px; }
+
+  body {
+    background: #080808;
+    color: #f0f0f0;
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+  }
+
+  /* background glow */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -30%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(48,209,88,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 440px;
+    text-align: center;
+    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* ── CHECK ICON ── */
+  .check-wrap {
+    width: 80px;
+    height: 80px;
+    background: rgba(48,209,88,0.1);
+    border: 1px solid rgba(48,209,88,0.25);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 32px;
+    animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+  }
+
+  .check-wrap svg {
+    width: 36px;
+    height: 36px;
+    stroke: #30d158;
+    stroke-width: 2.5;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .check-wrap svg path {
+    stroke-dasharray: 50;
+    stroke-dashoffset: 50;
+    animation: drawCheck 0.4s ease 0.6s forwards;
+  }
+
+  /* ── HEADING ── */
+  .label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #30d158;
+    margin-bottom: 12px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.3s forwards;
+  }
+
+  h1 {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 12px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.4s forwards;
+  }
+
+  .sub {
+    font-size: 15px;
+    color: #666;
+    line-height: 1.7;
+    margin-bottom: 32px;
+    font-weight: 400;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.45s forwards;
+  }
+
+  /* ── TIME BOX ── */
+  .time-box {
+    background: #0f0f0f;
+    border: 1px solid #1e1e1e;
+    border-radius: 16px;
+    padding: 28px 24px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.5s forwards;
+  }
+
+  .time-box::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(48,209,88,0.4), transparent);
+  }
+
+  .time-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #444;
+    margin-bottom: 12px;
+  }
+
+  .time-value {
+    font-size: 42px;
+    font-weight: 800;
+    color: #f0f0f0;
+    line-height: 1;
+    margin-bottom: 8px;
+    letter-spacing: -1px;
+  }
+
+  .time-value span {
+    color: #30d158;
+  }
+
+  .time-sub {
+    font-size: 13px;
+    color: #555;
+    margin-top: 10px;
+  }
+
+  /* ── DIVIDER ── */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.6s forwards;
+  }
+
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #1e1e1e;
+  }
+
+  .divider span {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: #333;
+    letter-spacing: 2px;
+  }
+
+  /* ── REASSURANCE ── */
+  .reassurance {
+    background: #0f0f0f;
+    border: 1px solid #1e1e1e;
+    border-radius: 12px;
+    padding: 20px;
+    font-size: 14px;
+    color: #555;
+    line-height: 1.7;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.65s forwards;
+  }
+
+  .reassurance strong { color: #888; font-weight: 600; }
+
+  /* ── NOTE ── */
+  .note {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #333;
+    line-height: 1.8;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.7s forwards;
+  }
+
+  /* ── PULSE DOT ── */
+  .pulse-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 28px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease 0.35s forwards;
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: #30d158;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(48,209,88,0.4);
+    animation: pulse 2s infinite;
+  }
+
+  .pulse-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: #30d158;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes popIn {
+    from { opacity: 0; transform: scale(0.5); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes drawCheck {
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(48,209,88,0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(48,209,88,0); }
+    100% { box-shadow: 0 0 0 0 rgba(48,209,88,0); }
+  }
 </style>
 </head>
 <body>
-<div class="box">
-  <div class="icon">✅</div>
-  <h2>Request Received!</h2>
-  <p>We've got your information and a technician is being notified right now.</p>
+<div class="card">
 
-  <div class="time-box">
-    <div class="big">30 – 90 Minutes</div>
-    <p>Expected callback time. Please keep your phone nearby.</p>
+  <div class="check-wrap">
+    <svg viewBox="0 0 24 24">
+      <path d="M4 12l6 6L20 6" />
+    </svg>
   </div>
 
-  <p>There's no need to call other companies — you're in the queue and someone will reach out to you shortly.</p>
-  <div class="note">If it's an emergency and you don't hear back in 30 minutes, call us directly.</div>
+  <div class="label">Confirmed</div>
+
+  <h1>You're in<br>the queue.</h1>
+
+  <div class="pulse-row">
+    <div class="pulse-dot"></div>
+    <span class="pulse-text">Technician being notified</span>
+  </div>
+
+  <div class="time-box">
+    <div class="time-label">Expected callback</div>
+    <div class="time-value"><span>30</span> – <span>90</span></div>
+    <div class="time-sub">minutes · keep your phone nearby</div>
+  </div>
+
+  <div class="divider"><span>what's next</span></div>
+
+  <div class="reassurance">
+    <strong>No need to call anyone else.</strong> You're already in the system and a technician will reach out to you directly within the window above.
+  </div>
+
+  <div class="note">
+    emergency? if you don't hear back in 30 min · call us directly
+  </div>
+
 </div>
 </body>
 </html>
