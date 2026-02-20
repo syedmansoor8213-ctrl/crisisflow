@@ -74,83 +74,73 @@ Respond ONLY with valid JSON:
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  // Log everything immediately
   console.log('=== WEBHOOK HIT ===');
-  console.log('tenant_id:', req.query.tenant_id);
-  console.log('body:', JSON.stringify(req.body));
 
-  // Respond immediately so Ring-Ready doesn't retry
-  res.status(200).json({ received: true });
+  const tenant_id = req.query.tenant_id;
 
-  // Everything below runs after response is sent
+  if (!tenant_id) {
+    console.error('ERROR: No tenant_id in URL');
+    return res.status(400).json({ error: 'Missing tenant_id' });
+  }
+
+  const {
+    from_phone_number,
+    callback_number,
+    caller_name,
+    call_label,
+    summary
+  } = req.body;
+
+  console.log('tenant_id:', tenant_id);
+  console.log('caller:', caller_name, '| label:', call_label);
+  console.log('summary:', summary);
+
   try {
-    const tenant_id = req.query.tenant_id;
-
-    if (!tenant_id) {
-      console.error('ERROR: No tenant_id in URL');
-      return;
-    }
-
-    const {
-      from_phone_number,
-      callback_number,
-      caller_name,
-      call_label,
-      summary
-    } = req.body;
-
-    console.log('Parsed fields:', { from_phone_number, callback_number, caller_name, call_label, summary });
-
-    // Fetch tenant
+    // ── FETCH TENANT ──
     const { data: tenant, error: tenantError } = await supabase
       .from('clients')
       .select('*')
       .eq('tenant_id', tenant_id)
       .single();
 
-    if (tenantError) {
-      console.error('ERROR fetching tenant:', JSON.stringify(tenantError));
-      return;
-    }
-
-    if (!tenant) {
-      console.error('ERROR: Tenant not found for id:', tenant_id);
-      return;
+    if (tenantError || !tenant) {
+      console.error('ERROR: Tenant not found', JSON.stringify(tenantError));
+      return res.status(200).json({ received: true, note: 'tenant not found' });
     }
 
     if (tenant.status === 'frozen') {
-      console.log('Tenant is frozen, skipping');
-      return;
+      console.log('Tenant frozen, skipping');
+      return res.status(200).json({ received: true, note: 'frozen' });
     }
 
     console.log('Tenant found:', tenant.business_name);
 
-    // Extract location from summary
+    // ── EXTRACT LOCATION ──
     const locationRegex = /(?:in|at|near|location:)\s+([A-Za-z\s]+?)(?:\.|,|$)/i;
     const match = summary?.match(locationRegex);
     const extractedLocation = match ? match[1].trim() : (tenant.service_location || 'Unknown');
-    console.log('Extracted location:', extractedLocation);
+    console.log('Location:', extractedLocation);
 
-    // Classify urgency
+    // ── CLASSIFY ──
     const hasUrgency = checkUrgencyKeywords(summary);
     let classification;
 
     if (hasUrgency) {
       classification = { class: 'urgent', reason: 'keyword trigger' };
-      console.log('Keyword match — urgent');
+      console.log('Keyword match — URGENT');
     } else {
       classification = await classifyWithGemini(tenant, summary, caller_name, call_label);
     }
 
-    console.log('Classification:', classification);
+    console.log('Classification:', classification.class);
 
-    // Save lead
+    // ── SAVE LEAD ──
     const leadData = {
       tenant_id,
       source: 'call',
       caller_name: caller_name || 'Unknown',
-      caller_phone: from_phone_number || null,
-      callback_phone: callback_number || from_phone_number || null,
+      caller_phone: from_phone_number === 'Anonymous' ? null : (from_phone_number || null),
+      callback_phone: callback_number || (from_phone_number === 'Anonymous' ? null : from_phone_number) || null,
       job_type: call_label || 'General Inquiry',
       location: extractedLocation,
       urgency_class: classification.class,
@@ -158,7 +148,7 @@ export default async function handler(req, res) {
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
     };
 
-    console.log('Saving lead:', JSON.stringify(leadData));
+    console.log('Inserting lead...');
 
     const { data: insertedLead, error: leadInsertError } = await supabase
       .from('leads')
@@ -167,13 +157,13 @@ export default async function handler(req, res) {
 
     if (leadInsertError) {
       console.error('ERROR saving lead:', JSON.stringify(leadInsertError));
-      return;
+      return res.status(200).json({ received: true, error: 'lead save failed' });
     }
 
-    console.log('Lead saved successfully:', insertedLead?.[0]?.id);
+    console.log('Lead saved:', insertedLead?.[0]?.id);
 
-    // Save campaign contact
-    const finalPhone = callback_number || from_phone_number;
+    // ── SAVE CAMPAIGN CONTACT ──
+    const finalPhone = callback_number || (from_phone_number === 'Anonymous' ? null : from_phone_number);
     const finalName  = caller_name || 'Unknown';
 
     if (finalPhone && finalName !== 'Unknown') {
@@ -188,15 +178,21 @@ export default async function handler(req, res) {
         });
 
       if (contactError) {
-        console.error('ERROR saving campaign contact:', JSON.stringify(contactError));
+        console.error('Campaign contact error:', JSON.stringify(contactError));
       } else {
         console.log('Campaign contact saved');
       }
+    } else {
+      console.log('Skipping campaign contact — anonymous or unknown caller');
     }
 
     console.log('=== WEBHOOK COMPLETE ===');
 
+    // ── RESPOND LAST — after ALL work is done ──
+    return res.status(200).json({ received: true, lead_id: insertedLead?.[0]?.id });
+
   } catch (err) {
-    console.error('=== UNHANDLED ERROR IN WEBHOOK ===', err);
+    console.error('=== UNHANDLED ERROR ===', err.message);
+    return res.status(200).json({ received: true, error: 'internal error' });
   }
 }
